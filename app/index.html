@@ -687,7 +687,7 @@ function viewStudenti(){
   let h=rosterHead("Studenti","studente","Aggiungi studente");
   if(!ppl.length)return h+'<div class="panel"><div class="empty">Nessuno studente nel team.</div></div>';
   h+='<div class="panel"><div class="cards">'+ppl.map(p=>{const u=studentHours(p,y),pct=u/s.studentLimit,c=pct>1?"crit":pct>=0.9?"warn":"";const q=wk.per[p.id]||{h:0};
-    return '<div class="card"><h4><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</h4><div class="num"><b>'+hrs(u)+'</b> su '+s.studentLimit+' h · restano <b>'+hrs(Math.max(0,s.studentLimit-u))+'</b></div><div class="bar '+c+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div><div class="sub2" style="font-size:12px">'+ROLES[p.role]+' · '+eur(p.rate)+'/h · settimana '+(+k.slice(6))+': '+hrs(q.h)+(+p.prior?' · incluse '+hrs(p.prior)+' altrove':'')+'</div>'+(reqReady?'<div class="sub2" style="font-size:12px">'+((availWeeks[p.id]||{})[ymd(curMonday)]?'Disponibilità settimana '+(+k.slice(6))+' inviata · <a href="#richieste">vedi</a>':'Disponibilità settimana '+(+k.slice(6))+' non inviata')+'</div>':'')+'<div>'+editBtn(p)+'</div></div>'}).join("")+
+    return '<div class="card"><h4><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</h4><div class="num"><b>'+hrs(u)+'</b> su '+s.studentLimit+' h · restano <b>'+hrs(Math.max(0,s.studentLimit-u))+'</b></div><div class="bar '+c+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div><div class="sub2" style="font-size:12px">'+ROLES[p.role]+' · '+eur(p.rate)+'/h · settimana '+(+k.slice(6))+': '+hrs(q.h)+(+p.prior?' · incluse '+hrs(p.prior)+' altrove':'')+'</div><div>'+editBtn(p)+'</div></div>'}).join("")+
   '</div></div>';
   return h;
 }
