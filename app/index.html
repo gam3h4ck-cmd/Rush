@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#faf7f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rush">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23faf7f1%27/%3E%3Crect x=%277%27 y=%278%27 width=%2714%27 height=%273.5%27 rx=%271.75%27 fill=%27%233d8b4f%27/%3E%3Crect x=%2710%27 y=%2714.25%27 width=%2716%27 height=%273.5%27 rx=%271.75%27 fill=%27%23e0ac34%27/%3E%3Crect x=%275%27 y=%2720.5%27 width=%2712%27 height=%273.5%27 rx=%271.75%27 fill=%27%23c8412b%27/%3E%3C/svg%3E">
+<title>Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800;1,9..144,900&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: intestazione chiara con il marchio e una bordura a quadretti da tovaglia; superficie color mozzarella; i turni sono comande colorate per reparto */
+  --bg:#faf7f1; --surface:#ffffff; --ink:#2b2420; --muted:#776c63; --line:#ebe3d6;
+  --accent:#c8412b; --accent-ink:#ffffff; --accent-soft:#fbe8e3;
+  --basil:#3d8b4f; --oil:#e0ac34;
+  --warn:#946500; --warn-soft:#fdf2d2; --crit:#b42318; --crit-soft:#fde3df; --ok:#3d8b4f;
+  --sala:#6f8a9c; --sala-soft:#eef2f5; --cucina:#9c7f63; --cucina-soft:#f5efe9; --bar:#9a7ea0; --bar-soft:#f3eef4;
+  --t-pranzo:#3d8b4f; --t-pranzo-soft:#e8f4eb; --t-pomeriggio:#e07a1f; --t-pomeriggio-soft:#fdeedd; --t-cena:#8e2c48; --t-cena-soft:#f6e4ea; --t-altro:#5f6b7a; --t-altro-soft:#eceff3;
+  --font-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --font-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--font-body);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--font-display);margin:0;text-wrap:balance}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px}
+header.top{background:var(--surface);padding-top:env(safe-area-inset-top)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+header.top::after{content:"";display:block;height:14px;background:linear-gradient(90deg,rgba(200,65,43,.5) 50%,transparent 0) 0 0/14px 14px,linear-gradient(rgba(200,65,43,.5) 50%,transparent 0) 0 0/14px 14px,var(--surface)}
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 0 8px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{display:flex;align-items:center}
+.brand h1{font-size:34px;font-weight:900;font-style:italic;letter-spacing:-.01em;line-height:1;color:var(--accent)}
+.brand .venue{color:var(--muted);font-size:14px;padding-left:10px;border-left:1px solid var(--line)}
+.status{margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--oil)} .dot.crit{background:var(--crit)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs a{padding:10px 14px;text-decoration:none;color:var(--muted);font-weight:600;font-size:15px;border-bottom:3px solid transparent;white-space:nowrap}
+nav.tabs a:hover{color:var(--ink)}
+nav.tabs a[aria-current="page"]{color:var(--accent);border-color:var(--accent)}
+nav.tabs a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+main{padding:20px 0 48px;display:grid;gap:16px}
+.banner{padding:10px 14px;border-radius:12px;background:var(--warn-soft);color:var(--ink);font-size:14px;border:1px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.ph{font-size:30px;font-weight:800}
+.sub2{color:var(--muted);font-size:14px}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 14px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--muted)}
+.btn:focus-visible,.icon-btn:focus-visible,.chip:focus-visible,.add:focus-visible,.dbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700;box-shadow:0 2px 0 #9e3020}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--crit)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.icon-btn{border:1px solid var(--line);background:var(--surface);width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:18px;line-height:1}
+.icon-btn:hover{border-color:var(--muted)}
+.weeknav{display:flex;align-items:center;gap:8px}
+.weeknav h2{font-size:26px;font-weight:800;min-width:210px;line-height:1.05}
+.weeknav .sub{color:var(--muted);font-size:13px;font-family:var(--font-body);font-weight:500;display:block}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--basil);border-radius:14px;padding:12px 14px}
+.tile:nth-child(2){border-top-color:var(--accent)} .tile:nth-child(3){border-top-color:var(--oil)} .tile:nth-child(4){border-top-color:var(--cucina)}
+.tile .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.tile .val{font-family:var(--font-display);font-size:34px;font-weight:800;line-height:1.1;margin-top:2px}
+.tile .hint{font-size:13px;color:var(--muted)}
+.bar{height:7px;border-radius:4px;background:var(--line);margin-top:8px;overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--basil);border-radius:4px}
+.bar.warn>i{background:var(--oil)} .bar.crit>i{background:var(--crit)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(43,36,32,.04)}
+.panel>.hd{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.panel>.hd h3{font-size:20px;font-weight:800}
+.alerts{list-style:none;margin:0;padding:6px 0}
+.alerts li{display:flex;gap:10px;align-items:baseline;padding:6px 14px;font-size:14px}
+.pill{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.crit{background:var(--crit-soft);color:var(--crit)} .pill.ok{background:var(--sala-soft);color:var(--basil)} .pill.mute{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.empty{padding:32px;text-align:center;color:var(--muted)}
+.empty a{color:var(--accent);font-weight:700}
+.gridwrap{overflow-x:auto}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:1080px}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);vertical-align:top}
+table.grid thead th{position:sticky;top:0;background:var(--surface);font-size:13px;text-align:left;padding:8px;font-weight:600;color:var(--muted)}
+table.grid thead th .d{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--ink);display:block}
+table.grid thead th.today{box-shadow:inset 0 3px 0 var(--accent)}
+table.grid thead th.today .d{color:var(--accent)}
+table.grid th.name,table.grid td.name{position:sticky;left:0;background:var(--surface);z-index:1;width:210px;min-width:210px;padding:8px 10px}
+table.grid thead th.name{z-index:2}
+tr.group td{background:var(--bg);font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.12em;padding:6px 10px;color:var(--muted)}
+tr.group td.name{background:var(--bg)}
+tr.group.g-sala td.name,.mgroup.g-sala{color:var(--sala)} tr.group.g-cucina td.name,.mgroup.g-cucina{color:var(--cucina)} tr.group.g-bar td.name,.mgroup.g-bar{color:var(--bar)}
+.person{display:flex;flex-direction:column;gap:2px}
+.person b{font-weight:700}
+.person .meta{font-size:12px;color:var(--muted)}
+.tag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted);margin-left:6px}
+.roledot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+td.cell{padding:6px;min-width:110px;height:58px}
+td.cell.warn{background:var(--warn-soft)} td.cell.crit{background:var(--crit-soft)}
+.chip{display:block;width:100%;text-align:left;border:1px solid transparent;border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:4px 8px;margin-bottom:4px;cursor:pointer;font-family:var(--font-mono);font-size:12.5px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.chip:hover{border-color:var(--line);border-left-color:inherit;filter:brightness(.98)}
+.chip small{display:block;font-family:var(--font-body);font-weight:500;color:var(--muted);font-size:11px;letter-spacing:0}
+.chip.r-sala{border-left-color:var(--sala);background:var(--sala-soft)} .chip.r-cucina{border-left-color:var(--cucina);background:var(--cucina-soft)} .chip.r-bar{border-left-color:var(--bar);background:var(--bar-soft)}
+.add{display:block;width:100%;border:1px dashed var(--line);background:transparent;border-radius:8px;color:var(--muted);cursor:pointer;font-size:13px;padding:2px}
+.add:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+tfoot td{padding:8px;font-size:13px;background:var(--bg);font-weight:600}
+tfoot td.name{background:var(--bg);font-weight:800}
+.list{width:100%;border-collapse:collapse}
+.list th,.list td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;white-space:nowrap}
+.list th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.list td.r,.list th.r{text-align:right}
+.list tr:last-child td{border-bottom:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:14px}
+.card{border:1px solid var(--line);border-left:4px solid var(--oil);border-radius:12px;padding:12px 14px;background:var(--surface);display:grid;gap:6px}
+.card h4{margin:0;font-family:var(--font-display);font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px}
+.form{display:grid;gap:12px;padding:14px;max-width:560px}
+.field{display:grid;gap:4px}
+.field label{font-size:13px;font-weight:700}
+.field .help{font-size:12px;color:var(--muted)}
+.field input,.field select,.field textarea{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 10px;width:100%}
+.field input[type="time"]{font-family:var(--font-mono)}
+.field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.presets{display:flex;gap:6px;flex-wrap:wrap}
+.presets button{font-size:12px;padding:5px 10px;border-radius:999px}
+.overlay{position:fixed;inset:0;background:rgba(43,36,32,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:50;overflow-y:auto}
+.modal{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:480px;box-shadow:0 20px 50px rgba(43,36,32,.25);overflow:hidden}
+.modal .hd{padding:14px 16px;border-bottom:1px solid var(--line);border-top:6px solid var(--accent)}
+.modal .hd h3{font-size:23px;font-weight:800}
+.modal .bd{padding:16px;display:grid;gap:12px}
+.modal .ft{padding:12px 16px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;background:var(--bg)}
+.err{color:var(--crit);font-size:13px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;font-weight:600;z-index:60}
+.note{font-size:13px;color:var(--muted);padding:0 14px 14px;margin:0}
+.note.warnnote{background:var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 14px 14px;color:var(--ink)}
+.maxin{width:84px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;background:var(--surface)}
+.maxin:focus-visible{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent)}
+.list tr.over td{background:var(--crit-soft)}
+.chip.t-pranzo{border-left-color:var(--t-pranzo);background:var(--t-pranzo-soft)}
+.chip.t-pomeriggio{border-left-color:var(--t-pomeriggio);background:var(--t-pomeriggio-soft)}
+.chip.t-cena{border-left-color:var(--t-cena);background:var(--t-cena-soft)}
+.chip.t-altro{border-left-color:var(--t-altro);background:var(--t-altro-soft)}
+.legend{display:grid;grid-template-columns:auto auto;justify-content:start;gap:5px 12px;font-family:var(--font-body);font-size:11.5px;font-weight:600;color:var(--ink);text-transform:none;letter-spacing:0}
+.legend span{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sw{display:inline-block;width:14px;height:12px;border-radius:3px;border-left:4px solid}
+.sw.t-pranzo{background:var(--t-pranzo-soft);border-color:var(--t-pranzo)} .sw.t-pomeriggio{background:var(--t-pomeriggio-soft);border-color:var(--t-pomeriggio)}
+.sw.t-cena{background:var(--t-cena-soft);border-color:var(--t-cena)} .sw.t-altro{background:var(--t-altro-soft);border-color:var(--t-altro)}
+.overtag{display:inline-flex;align-items:center;gap:3px;color:var(--crit);font-weight:800;white-space:nowrap}
+.overtag i{display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;background:var(--crit);color:#fff;font-style:normal;font-size:10px;font-weight:800;line-height:1}
+table.grid th.tot,table.grid td.tot{position:sticky;right:0;background:var(--surface);z-index:1;min-width:104px;width:104px;padding:8px 10px;text-align:right;border-left:2px solid var(--line);vertical-align:middle}
+table.grid thead th.tot{z-index:2;vertical-align:top}
+table.grid td.tot b{font-size:15px}
+table.grid td.tot small{display:block;color:var(--muted);font-size:12px}
+table.grid td.tot .overtag{margin-top:2px}
+tr.group td.tot,tfoot td.tot{background:var(--bg)}
+body.staffmode nav.tabs{display:none}
+.pickers{display:flex;flex-wrap:wrap;gap:8px;padding:14px}
+.pickers .btn{text-decoration:none}
+.meday{display:grid;grid-template-columns:76px 1fr;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);align-items:start}
+.meday:last-child{border-bottom:0}
+.meday .day b{font-family:var(--font-display);font-size:20px;display:block;line-height:1.1}
+.meday .day span{font-size:12px;color:var(--muted)}
+.meday.today{background:var(--accent-soft)}
+.meday.today .day b{color:var(--accent)}
+.mshifts2{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.chip.static{cursor:default;margin:0;font-size:15px;padding:8px 12px;width:auto;min-width:200px}
+.chip.static:hover{filter:none;border-color:transparent}
+.linkcell{font-family:var(--font-mono);font-size:12px;color:var(--muted)}
+.steps{margin:0;padding:12px 14px 6px 34px;display:grid;gap:6px;font-size:14px}
+.actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.actions .btn{text-decoration:none;color:inherit}
+.actions .btn.primary{color:var(--accent-ink)}
+body.nologin nav.tabs{display:none}
+.auth{max-width:440px;margin:24px auto;width:100%}
+.linkbtn{background:none;border:0;color:var(--accent);font-weight:600;cursor:pointer;padding:4px;font-size:14px}
+.list tr.off-row td{opacity:.6}
+a.btn{text-decoration:none;color:inherit;display:inline-flex;align-items:center}
+a.btn.primary{color:var(--accent-ink)}
+.cellbtns{display:flex;gap:4px}
+.cellbtns .add{flex:1}
+.add.paste{border-style:solid;border-color:var(--oil);background:#fff7e3;color:var(--ink);font-weight:600}
+.add.paste:hover{background:#ffefc7;border-color:var(--oil);color:var(--ink)}
+div.chip{user-select:none;-webkit-user-select:none}
+.chip[draggable="true"]{cursor:grab}
+.chip.dragging{opacity:.45}
+td.cell.dropping{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+.dayact{display:flex;gap:4px;margin-top:4px;flex-wrap:wrap}
+.panel>.hd .dayact{margin-top:0}
+.mini{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-weight:600;color:var(--muted);font-family:var(--font-body)}
+.mini:hover{border-color:var(--muted);color:var(--ink)}
+.mini.on{border-color:var(--oil);background:#fff7e3;color:var(--ink)}
+.mini:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono)}
+#clipbar{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:40;background:var(--ink);color:#fff;border-radius:999px;padding:8px 8px 8px 18px;display:flex;gap:12px;align-items:center;box-shadow:0 10px 30px rgba(43,36,32,.3);width:max-content;max-width:calc(100% - 24px);font-size:14px}
+#clipbar[hidden]{display:none}
+#clipbar button{background:var(--oil);color:var(--ink);border:0;border-radius:999px;padding:7px 14px;font-weight:700;cursor:pointer;white-space:nowrap}
+body.hasclip main{padding-bottom:96px}
+body.hasclip .toast{bottom:84px}
+.m-actions{display:flex;gap:8px;flex-wrap:wrap}
+.daystrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dbtn{position:relative;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;font-size:12px;color:var(--muted);font-weight:600}
+.dbtn b{font-family:var(--font-display);font-size:22px;font-weight:800;color:var(--ink);line-height:1.05}
+.dbtn small{font-size:10px;font-weight:500;font-variant-numeric:tabular-nums}
+.dbtn.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 2px 0 #9e3020}
+.dbtn.on b{color:var(--accent-ink)}
+.fdot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--oil)}
+.mgroup{padding:7px 14px;background:var(--bg);font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);border-bottom:1px solid var(--line)}
+.mrow{display:grid;gap:6px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.mrow.warn{background:var(--warn-soft)} .mrow.crit{background:var(--crit-soft)}
+.mshifts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mshifts .chip{width:auto;margin:0;padding:7px 10px;font-size:14px}
+.mshifts .add{width:auto;padding:7px 12px;font-size:14px}
+.off{color:var(--muted);font-size:14px}
+@media (max-width:699px){
+  .tiles{grid-template-columns:1fr 1fr;gap:8px}
+  .tile{padding:10px 12px}
+  .tile .val{font-size:26px}
+  .tile .lbl{font-size:11px}
+  .topbar{padding:10px 0 4px;gap:4px}
+  .brand h1{font-size:30px}
+  main{padding-top:12px;gap:12px}
+  nav.tabs a{padding:8px 10px;font-size:14px}
+  .overlay{padding:12px}
+  .field input,.field select,.field textarea{font-size:16px}
+  .ph{font-size:26px}
+  main>.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px}
+  .ore-t th:nth-child(2),.ore-t td:nth-child(2){display:none}
+  .list th,.list td{padding:10px}
+}
+@media (max-width:640px){
+  .two,.three{grid-template-columns:1fr}
+  .weeknav h2{min-width:0;font-size:22px}
+  .status{margin-left:0;width:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand"><span class="logo" aria-hidden="true"><svg width="30" height="22" viewBox="0 0 30 22"><rect x="2" y="3" width="18" height="3.6" rx="1.8" fill="#3d8b4f"/><rect x="7" y="9.2" width="21" height="3.6" rx="1.8" fill="#e0ac34"/><rect x="0" y="15.4" width="15" height="3.6" rx="1.8" fill="#c8412b"/></svg></span><h1>Rush</h1><span class="venue" id="venue"></span></div>
+      <div class="status" id="status"><span class="dot"></span><span>Caricamento…</span></div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sezioni">
+      <a href="#planning">Planning</a>
+      <a href="#ore">Ore e budget</a>
+      <a href="#fissi">Fissi</a>
+      <a href="#studenti">Studenti</a>
+      <a href="#indipendenti">Indipendenti</a>
+      <a href="#link">Link staff</a>
+      <a href="#impostazioni">Impostazioni</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap"><main id="main"></main></div>
+<div id="clipbar" role="status" hidden></div>
+<div id="layer"></div>
+
+<script>
+"use strict";
+/* ---------- costanti e utilità ---------- */
+const DAYS=["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+const DAYS_LONG=["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"];
+const MONTHS=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+const ROLES={sala:"Sala",cucina:"Cucina",bar:"Bar"};
+const STATUSES={fisso:"Fisso",studente:"Studente",indipendente:"Indipendente"};
+const MONTHS_LONG=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+const PRESETS=[["Pranzo","11:00","15:00",0],["Pomeriggio","15:00","18:00",0],["Cena","18:00","23:30",0]];
+const DEFAULT_SETTINGS={budget:4500,studentLimit:650,maxDay:10,maxWeek:38,minRest:11,defaultPause:0};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
+const eur=n=>new Intl.NumberFormat("it-BE",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n||0);
+const hrs=n=>(Math.round((n||0)*100)/100).toLocaleString("it-BE",{maximumFractionDigits:2})+" h";
+const toMin=t=>{const m=/^(\d{1,2}):(\d{2})$/.exec(t||"");return m?(+m[1])*60+(+m[2]):null};
+function shiftMinutes(s){const a=toMin(s.start),b=toMin(s.end);if(a==null||b==null)return 0;let d=b-a;if(d<=0)d+=1440;return d}
+function shiftHours(s){return Math.max(0,(shiftMinutes(s)-(+s.pause||0))/60)}
+const SHIFT_TYPES={pranzo:"Pranzo",pomeriggio:"Pomeriggio",cena:"Cena",altro:"Altro orario"};
+function shiftType(x){const a=toMin(x.start),d=shiftMinutes(x);if(a==null||d>7*60)return "altro";if(a<300)return "cena";const e=a+d;if(e<=990)return "pranzo";if(e<=1170)return "pomeriggio";return "cena"}
+const legendHtml=()=>'<div class="legend" aria-label="Legenda turni">'+Object.entries(SHIFT_TYPES).map(([k,l])=>'<span><i class="sw t-'+k+'"></i>'+l+'</span>').join("")+'</div>';
+const isIndip=p=>!!p&&p.status==="indipendente";
+function shiftCost(x,p){if(!p)return 0;return isIndip(p)?(+p.rate||0):shiftHours(x)*(+p.rate||0)}
+function mondayOf(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x}
+function weekKey(monday){const th=new Date(monday);th.setDate(th.getDate()+3);const y=th.getFullYear();const m1=mondayOf(new Date(y,0,4));const w=1+Math.round((monday-m1)/604800000);return y+"-W"+String(w).padStart(2,"0")}
+function mondayFromKey(k){const p=/^(\d{4})-W(\d{2})$/.exec(k);if(!p)return null;const d=mondayOf(new Date(+p[1],0,4));d.setDate(d.getDate()+(+p[2]-1)*7);return d}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+const fmtDay=d=>d.getDate()+" "+MONTHS[d.getMonth()];
+
+/* ---------- stato ---------- */
+let cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};
+let weeks={};            // chiave settimana -> array di turni
+let mode="loading";      // setup | login | loading | db
+let readOnly=false;
+let sb=null, session=null, orgId=null, starting=false, lastLoad=0, authMsg="", recovery=false;
+let srvShifts={}, srvStaff={}, srvOrg="";
+let dayIdx=null;
+const isMobile=()=>window.innerWidth<700;
+const today=new Date();
+let curMonday=mondayOf(today);
+if(today.getDay()===0||today.getDay()===6) curMonday=addDays(curMonday,7); // nel weekend si pianifica la settimana dopo
+const curKey=()=>weekKey(curMonday);
+const S=()=>({...DEFAULT_SETTINGS,...(cfg.settings||{})});
+const staffById=id=>cfg.staff.find(p=>p.id===id);
+function weekLimit(p){return +p.maxHours>0?+p.maxHours:(isIndip(p)?0:S().maxWeek)}
+
+/* ---------- salvataggio su Supabase: una sincronizzazione alla volta per blocco ---------- */
+const jobs={};
+const busy=key=>jobs[key]&&(jobs[key].busy||jobs[key].dirty);
+const pending=()=>Object.values(jobs).some(j=>j.busy||j.dirty);
+function enqueue(key,fn){
+  const j=jobs[key]||(jobs[key]={busy:false,dirty:false});
+  j.dirty=true;j.fn=fn;if(!j.busy)runJob(key,j);
+}
+async function runJob(key,j){
+  j.busy=true;setStatus("warn","Salvataggio…");
+  while(j.dirty){
+    j.dirty=false;
+    let tries=0;
+    for(;;){
+      try{await j.fn();break}
+      catch(e){console.error(e);tries++;
+        if(tries<3&&navigator.onLine){await new Promise(r=>setTimeout(r,800*tries));continue}
+        j.busy=false;setStatus("crit",navigator.onLine?"Salvataggio non riuscito: ricarica la pagina":"Sei offline: le ultime modifiche non sono salvate");return;}
+    }
+  }
+  j.busy=false;if(!pending())setStatus("ok","Tutto salvato");
+}
+const idle=async key=>{while(busy(key))await new Promise(r=>setTimeout(r,120))};
+const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const parseYmd=v=>{const [y,m,d]=String(v).slice(0,10).split("-").map(Number);return new Date(y,m-1,d)};
+function shiftRow(k,x){return {id:x.id,org_id:orgId,staff_id:x.staffId,day:ymd(addDays(mondayFromKey(k),x.day)),start_time:x.start,end_time:x.end,pause:+x.pause||0,note:x.note||""}}
+function staffRow(p){return {id:p.id,org_id:orgId,name:p.name,role:p.role,status:p.status,rate:+p.rate||0,contract:+p.contract||0,max_hours:+p.maxHours||0,prior_hours:+p.prior||0,link_active:p.linkActive!==false}}
+function orgRow(){return {name:cfg.venue||"",settings:S()}}
+function saveCfg(){
+  if(readOnly||!sb)return;
+  enqueue("cfg",async()=>{
+    const org=orgRow(),oj=JSON.stringify(org);
+    if(oj!==srvOrg){const {error}=await sb.from("orgs").update(org).eq("id",orgId);if(error)throw error;srvOrg=oj}
+    const rows=cfg.staff.map(staffRow),ids=new Set(rows.map(r=>r.id));
+    const changed=rows.filter(r=>srvStaff[r.id]!==JSON.stringify(r));
+    const removed=Object.keys(srvStaff).filter(id=>!ids.has(id));
+    if(changed.length){
+      const {data,error}=await sb.from("staff").upsert(changed).select("id,access_token");if(error)throw error;
+      changed.forEach(r=>srvStaff[r.id]=JSON.stringify(r));
+      let fresh=false;(data||[]).forEach(d=>{const p=staffById(d.id);if(p&&p.token!==d.access_token){p.token=d.access_token;fresh=true}});
+      if(fresh&&route()==="link")render();
+    }
+    if(removed.length){
+      const {error}=await sb.from("staff").delete().in("id",removed);if(error)throw error;
+      removed.forEach(id=>delete srvStaff[id]);
+      for(const id in srvShifts){if(removed.includes(JSON.parse(srvShifts[id]).staff_id))delete srvShifts[id]}
+    }
+  });
+}
+function saveWeek(k){
+  if(readOnly||!sb)return;
+  enqueue("w:"+k,async()=>{
+    await idle("cfg");   // i dipendenti nuovi devono esistere prima dei loro turni
+    const mon=mondayFromKey(k),from=ymd(mon),to=ymd(addDays(mon,6));
+    const local=(weeks[k]||[]).filter(x=>staffById(x.staffId)&&srvStaff[x.staffId]).map(x=>shiftRow(k,x));
+    const keep=new Set(local.map(r=>r.id));
+    const changed=local.filter(r=>srvShifts[r.id]!==JSON.stringify(r));
+    const removed=Object.keys(srvShifts).filter(id=>{const r=JSON.parse(srvShifts[id]);return r.day>=from&&r.day<=to&&!keep.has(id)});
+    if(changed.length){const {error}=await sb.from("shifts").upsert(changed);if(error)throw error;changed.forEach(r=>srvShifts[r.id]=JSON.stringify(r))}
+    if(removed.length){const {error}=await sb.from("shifts").delete().in("id",removed);if(error)throw error;removed.forEach(id=>delete srvShifts[id])}
+  });
+}
+async function fetchAll(build){
+  const out=[];
+  for(let from=0;;from+=1000){
+    const {data,error}=await build().range(from,from+999);if(error)throw error;
+    out.push(...data);if(data.length<1000)break;
+  }
+  return out;
+}
+async function loadAll(){
+  const since=ymd(new Date(new Date().getFullYear()-1,0,1));
+  const [o,st,sh]=await Promise.all([
+    sb.from("orgs").select("name,settings").eq("id",orgId).single(),
+    fetchAll(()=>sb.from("staff").select("*").eq("org_id",orgId).order("created_at").order("id")),
+    fetchAll(()=>sb.from("shifts").select("id,staff_id,day,start_time,end_time,pause,note").eq("org_id",orgId).gte("day",since).order("day").order("id"))
+  ]);
+  if(o.error)throw o.error;
+  cfg={venue:o.data.name||"",settings:{...DEFAULT_SETTINGS,...(o.data.settings||{})},
+    staff:st.map(r=>({id:r.id,name:r.name,role:r.role,status:r.status,rate:+r.rate||0,contract:+r.contract||0,maxHours:+r.max_hours||0,prior:+r.prior_hours||0,token:r.access_token,linkActive:r.link_active}))};
+  srvOrg=JSON.stringify(orgRow());
+  srvStaff={};cfg.staff.forEach(p=>srvStaff[p.id]=JSON.stringify(staffRow(p)));
+  weeks={};srvShifts={};
+  for(const r of sh){
+    const d=parseYmd(r.day),k=weekKey(mondayOf(d));
+    const x={id:r.id,staffId:r.staff_id,day:(d.getDay()+6)%7,start:r.start_time,end:r.end_time,pause:+r.pause||0,note:r.note||""};
+    (weeks[k]=weeks[k]||[]).push(x);srvShifts[r.id]=JSON.stringify(shiftRow(k,x));
+  }
+  lastLoad=Date.now();
+}
+function setStatus(kind,text){
+  const el=document.getElementById("status");
+  el.innerHTML=text?'<span class="dot '+kind+'"></span><span>'+esc(text)+'</span>':'';
+}
+
+/* ---------- calcoli ---------- */
+function weekStats(key){
+  const s=S();const shifts=(weeks[key]||[]).filter(x=>staffById(x.staffId));
+  const per={};let totH=0,totC=0;const dayH=Array(7).fill(0),dayC=Array(7).fill(0);
+  for(const x of shifts){
+    const p=staffById(x.staffId);const h=shiftHours(x);const c=shiftCost(x,p);
+    const a=x.day*1440+toMin(x.start);const e=a+shiftMinutes(x);
+    const q=per[p.id]||(per[p.id]={h:0,c:0,n:0,day:Array(7).fill(0),list:[]});
+    q.h+=h;q.c+=c;q.n++;q.day[x.day]+=h;q.list.push({a,e,day:x.day});
+    totH+=h;totC+=c;dayH[x.day]+=h;dayC[x.day]+=c;
+  }
+  const alerts=[];const flags={};
+  const flag=(id,d,lvl)=>{const k=id+":"+d;if(flags[k]!=="crit")flags[k]=lvl};
+  for(const id in per){
+    const p=staffById(id);const q=per[id];q.list.sort((u,v)=>u.a-v.a);
+    for(let i=1;i<q.list.length;i++){if(q.list[i].a<q.list[i-1].e){alerts.push(["crit",p.name+": turni sovrapposti "+DAYS_LONG[q.list[i].day].toLowerCase()]);flag(id,q.list[i].day,"crit")}}
+    const emp=p.status!=="indipendente";
+    if(emp)q.day.forEach((h,d)=>{if(h>s.maxDay){alerts.push(["warn",p.name+": "+hrs(h)+" "+DAYS_LONG[d].toLowerCase()+" (soglia "+s.maxDay+" h)"]);flag(id,d,"warn")}});
+    const days=[...new Set(q.list.map(z=>z.day))].sort((u,v)=>u-v);
+    for(let i=1;emp&&i<days.length;i++){
+      const prevEnd=Math.max(...q.list.filter(z=>z.day===days[i-1]).map(z=>z.e));
+      const nextStart=Math.min(...q.list.filter(z=>z.day===days[i]).map(z=>z.a));
+      const gap=(nextStart-prevEnd)/60;
+      if(gap>=0&&gap<s.minRest){alerts.push(["warn",p.name+": solo "+hrs(gap)+" di riposo prima di "+DAYS_LONG[days[i]].toLowerCase()+" (soglia "+s.minRest+" h)"]);flag(id,days[i],"warn")}
+    }
+    const lim=weekLimit(p);if(lim>0&&q.h>lim)alerts.push(["warn",p.name+": "+hrs(q.h-lim)+" in più a settimana ("+hrs(q.h)+" su un massimo di "+lim+" h)"]);
+  }
+  const y=(mondayFromKey(key)||curMonday).getFullYear();
+  for(const p of cfg.staff.filter(z=>z.status==="studente")){
+    const used=studentHours(p,y);
+    if(used>s.studentLimit)alerts.push(["crit",p.name+": "+hrs(used)+" da studente nel "+y+", oltre il limite di "+s.studentLimit+" h"]);
+    else if(used>=s.studentLimit*0.9)alerts.push(["warn",p.name+": "+hrs(used)+" da studente nel "+y+" (limite "+s.studentLimit+" h)"]);
+  }
+  if(s.budget>0){
+    if(totC>s.budget)alerts.push(["crit","Costo stimato "+eur(totC)+" oltre il budget di "+eur(s.budget)]);
+    else if(totC>=s.budget*0.9)alerts.push(["warn","Costo stimato al "+Math.round(totC/s.budget*100)+"% del budget"]);
+  }
+  alerts.sort((u,v)=>(u[0]==="crit"?0:1)-(v[0]==="crit"?0:1));
+  return {per,totH,totC,dayH,dayC,alerts,flags};
+}
+function studentHours(p,year){
+  let h=+p.prior||0;
+  for(const k in weeks){
+    const m=mondayFromKey(k);if(!m)continue;
+    for(const x of weeks[k]){if(x.staffId!==p.id)continue;if(addDays(m,x.day).getFullYear()===year)h+=shiftHours(x)}
+  }
+  return h;
+}
+
+/* ---------- rendering ---------- */
+const route=()=>{const h=(location.hash||"").slice(1);return ["planning","ore","fissi","studenti","indipendenti","link","impostazioni"].includes(h)?h:"planning"};
+function render(){
+  document.getElementById("venue").textContent=cfg.venue||"";
+  document.querySelectorAll("#tabs a").forEach(a=>a.getAttribute("href")==="#"+route()?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));
+  const main=document.getElementById("main");
+  let html="";
+  document.body.classList.toggle("nologin",mode!=="db");
+  if(mode==="setup"){main.innerHTML='<div class="panel"><div class="empty">Configurazione mancante: inserisci l\'indirizzo e la chiave di Supabase nel file <b>config.js</b> (vedi la guida).</div></div>';return}
+  if(mode==="login"){main.innerHTML=viewLogin();return}
+  if(mode!=="db"){main.innerHTML='<div class="panel"><div class="empty">Caricamento del planning…</div></div>';return}
+  const r=route();
+  html+=r==="link"?viewLinks():r==="planning"?viewPlanning():r==="ore"?viewOre():r==="fissi"?viewFissi():r==="studenti"?viewStudenti():r==="indipendenti"?viewIndipendenti():viewSettings();
+  main.innerHTML=html;
+  renderClipbar();
+}
+function weekHeader(){
+  const k=curKey(),m=curMonday,e=addDays(m,6);
+  return '<div class="weeknav"><button class="icon-btn" data-act="prev" aria-label="Settimana precedente">‹</button>'+
+    '<h2>Settimana '+(+k.slice(6))+'<span class="sub">'+fmtDay(m)+' – '+fmtDay(e)+' '+e.getFullYear()+'</span></h2>'+
+    '<button class="icon-btn" data-act="next" aria-label="Settimana successiva">›</button>'+
+    '<button class="btn" data-act="thisweek">Oggi</button></div>';
+}
+function viewPlanning(){
+  const k=curKey(),st=weekStats(k),s=S();
+  if(!cfg.staff.length)return weekHeader()+'<div class="panel"><div class="empty">Il planning è vuoto. Aggiungi il tuo team in <a href="#fissi">Fissi</a>, <a href="#studenti">Studenti</a> o <a href="#indipendenti">Indipendenti</a> per iniziare.</div></div>';
+  if(isMobile())return viewPlanningMobile(k,st,s);
+  const pct=s.budget>0?st.totC/s.budget:0;const bcls=pct>1?"crit":pct>=0.9?"warn":"";
+  const crit=st.alerts.filter(a=>a[0]==="crit").length,warn=st.alerts.length-crit;
+  let h='<div class="row">'+weekHeader()+'<span class="spacer"></span>'+
+    (readOnly?"":'<button class="btn" data-act="copyprev">Copia settimana precedente</button>')+
+    '<button class="btn" data-act="wa-team">Copia per WhatsApp</button><button class="btn" data-act="csv">Copia CSV</button></div>';
+  h+='<div class="tiles">'+
+    '<div class="tile"><div class="lbl">Ore pianificate</div><div class="val num">'+hrs(st.totH)+'</div><div class="hint">'+(weeks[k]||[]).length+' turni</div></div>'+
+    '<div class="tile"><div class="lbl">Costo personale stimato</div><div class="val num">'+eur(st.totC)+'</div><div class="hint">'+(st.totH?eur(st.totC/st.totH)+" / ora in media":"—")+'</div></div>'+
+    '<div class="tile"><div class="lbl">Budget settimanale</div><div class="val num">'+(s.budget>0?Math.round(pct*100)+"%":"—")+'</div><div class="hint">'+(s.budget>0?eur(st.totC)+" su "+eur(s.budget):'Imposta un budget')+'</div>'+(s.budget>0?'<div class="bar '+bcls+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div>':"")+'</div>'+
+  '</div>';
+  const todayKey=weekKey(mondayOf(today))===k?(today.getDay()+6)%7:-1;
+  h+='<div class="panel gridwrap"><table class="grid"><thead><tr><th class="name">'+legendHtml()+'</th>'+DAYS.map((d,i)=>'<th class="'+(i===todayKey?"today":"")+'"><span class="d">'+d+' '+addDays(curMonday,i).getDate()+'</span><span class="num">'+hrs(st.dayH[i])+'</span>'+dayActs(i,false)+'</th>').join("")+'<th class="tot"><span class="d">Totale</span><span class="num">'+hrs(st.totH)+'</span></th></tr></thead><tbody>';
+  for(const role of Object.keys(ROLES)){
+    const ppl=cfg.staff.filter(p=>p.role===role);if(!ppl.length)continue;
+    h+='<tr class="group g-'+role+'"><td class="name">'+ROLES[role]+'</td>'+'<td></td>'.repeat(7)+'<td class="tot"></td></tr>';
+    for(const p of ppl){
+      const q=st.per[p.id]||{h:0,c:0};
+      h+='<tr><td class="name"><div class="person"><b><span class="roledot" style="background:var(--'+role+')"></span>'+esc(p.name)+'<span class="tag">'+(STATUSES[p.status]||p.status)+'</span></b></div></td>';
+      for(let d=0;d<7;d++){
+        const fl="";
+        const list=(weeks[k]||[]).filter(x=>x.staffId===p.id&&x.day===d).sort((a,b)=>toMin(a.start)-toMin(b.start));
+        h+='<td class="cell '+fl+'" data-staff="'+p.id+'" data-day="'+d+'">'+list.map(x=>'<div class="chip t-'+shiftType(x)+' num" role="button" tabindex="0" data-act="edit" data-id="'+x.id+'"'+(readOnly?'':' draggable="true"')+' title="Clic per modificare · trascina per copiare (Maiusc per spostare)">'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></div>').join("")+
+          cellButtons(p,d,false)+'</td>';
+      }
+      h+='<td class="tot"><b class="num">'+hrs(q.h)+'</b>'+(overTag(p,q.h)?'<div>'+overTag(p,q.h)+'</div>':'')+'<small class="num">'+eur(q.c)+'</small></td></tr>';
+    }
+  }
+  h+='</tbody><tfoot><tr><td class="name">Costo giorno</td>'+st.dayC.map(c=>'<td class="num">'+eur(c)+'</td>').join("")+'<td class="tot num"><b>'+eur(st.totC)+'</b></td></tr></tfoot></table></div>';
+  return h;
+}
+let clip=null;   // {type:"shift",s:{...}} oppure {type:"day",label,shifts:[...]}
+let dragId=null;
+function overTag(p,h){const lim=weekLimit(p);return lim>0&&h>lim+1e-9?' <span class="overtag" title="Massimo '+lim+' h a settimana"><i aria-hidden="true">!</i>+'+hrs(h-lim)+'</span>':""}
+function cellButtons(p,d,mobile){
+  if(readOnly)return "";
+  const a=' data-staff="'+p.id+'" data-day="'+d+'"';
+  const add='<button class="add" data-act="add"'+a+' aria-label="Aggiungi turno a '+esc(p.name)+' '+DAYS_LONG[d]+'">'+(mobile?"+ Turno":"+")+'</button>';
+  const paste=clip&&clip.type==="shift"?'<button class="add paste" data-act="paste"'+a+' aria-label="Incolla turno per '+esc(p.name)+' '+DAYS_LONG[d]+'">'+(mobile?"Incolla "+esc(clip.s.start)+"–"+esc(clip.s.end):"Incolla")+'</button>':"";
+  return mobile?add+paste:'<div class="cellbtns">'+add+paste+'</div>';
+}
+function dayActs(d,mobile){
+  if(readOnly)return "";
+  const has=(weeks[curKey()]||[]).some(x=>x.day===d&&staffById(x.staffId));
+  return '<span class="dayact">'+(has?'<button class="mini" data-act="copyday" data-day="'+d+'">'+(mobile?"Copia giorno":"Copia")+'</button>':"")+(clip&&clip.type==="day"?'<button class="mini on" data-act="pasteday" data-day="'+d+'">'+(mobile?"Incolla qui":"Incolla")+'</button>':"")+'</span>';
+}
+function addShiftTo(k,staffId,day,src){
+  const arr=weeks[k]||[];
+  if(arr.some(z=>z.staffId===staffId&&z.day===day&&z.start===src.start&&z.end===src.end))return false;
+  arr.push({id:uid(),staffId,day,start:src.start,end:src.end,pause:+src.pause||0,note:src.note||""});weeks[k]=arr;return true;
+}
+function copyShift(x){clip={type:"shift",s:{start:x.start,end:x.end,pause:+x.pause||0,note:x.note||""}};render();toast("Turno "+x.start+"–"+x.end+" copiato")}
+function pasteShift(staffId,day){
+  const k=curKey();if(!clip||clip.type!=="shift")return;
+  if(!addShiftTo(k,staffId,day,clip.s)){toast("Questo turno c'è già");return}
+  saveWeek(k);render();toast("Turno incollato");
+}
+function pasteDay(day){
+  const k=curKey();if(!clip||clip.type!=="day")return;let n=0;
+  for(const x of clip.shifts){if(staffById(x.staffId)&&addShiftTo(k,x.staffId,day,x))n++}
+  if(n)saveWeek(k);render();toast(n?n+" turni incollati su "+DAYS_LONG[day].toLowerCase():"Nessun turno nuovo da incollare");
+}
+function renderClipbar(){
+  const el=document.getElementById("clipbar");if(!el)return;
+  if(!clip||readOnly||route()!=="planning"){el.hidden=true;document.body.classList.remove("hasclip");return}
+  el.hidden=false;document.body.classList.add("hasclip");
+  el.innerHTML='<span>'+(clip.type==="shift"?'Turno <b class="mono">'+esc(clip.s.start)+'–'+esc(clip.s.end)+'</b> copiato: tocca <b>Incolla</b> dove vuoi':'<b>'+esc(clip.label)+'</b> copiato ('+clip.shifts.length+' turni): tocca <b>Incolla</b> sul giorno')+'</span><button data-act="clip-clear">Fine</button>';
+}
+function tilesHtml(k,st,s){
+  const pct=s.budget>0?st.totC/s.budget:0;const bcls=pct>1?"crit":pct>=0.9?"warn":"";
+  const crit=st.alerts.filter(a=>a[0]==="crit").length,warn=st.alerts.length-crit;
+  return '<div class="tiles">'+
+    '<div class="tile"><div class="lbl">Ore</div><div class="val num">'+hrs(st.totH)+'</div><div class="hint">'+(weeks[k]||[]).length+' turni</div></div>'+
+    '<div class="tile"><div class="lbl">Costo stimato</div><div class="val num">'+eur(st.totC)+'</div><div class="hint">'+(st.totH?eur(st.totC/st.totH)+"/ora":"—")+'</div></div>'+
+    '<div class="tile"><div class="lbl">Budget</div><div class="val num">'+(s.budget>0?Math.round(pct*100)+"%":"—")+'</div><div class="hint">'+(s.budget>0?"su "+eur(s.budget):"Non impostato")+'</div>'+(s.budget>0?'<div class="bar '+bcls+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div>':"")+'</div>'+
+  '</div>';
+}
+function viewPlanningMobile(k,st,s){
+  if(dayIdx==null)dayIdx=weekKey(mondayOf(today))===k?(today.getDay()+6)%7:0;
+  const d=dayIdx;
+  let h=weekHeader();
+  h+='<div class="m-actions">'+(readOnly?"":'<button class="btn" data-act="copyprev">Copia sett. precedente</button>')+'<button class="btn" data-act="wa-team">WhatsApp</button><button class="btn" data-act="csv">CSV</button></div>';
+  h+=tilesHtml(k,st,s);
+  h+=legendHtml();
+  h+='<div class="daystrip" role="tablist" aria-label="Giorno">'+DAYS.map((n,i)=>{
+    const f=false;
+    return '<button role="tab" class="dbtn'+(i===d?" on":"")+'" aria-selected="'+(i===d)+'" data-act="day" data-d="'+i+'"><span>'+n+'</span><b>'+addDays(curMonday,i).getDate()+'</b><small>'+(st.dayH[i]?hrs(st.dayH[i]):"—")+'</small>'+(f?'<i class="fdot"></i>':"")+'</button>'}).join("")+'</div>';
+  h+='<div class="panel"><div class="hd"><h3>'+DAYS_LONG[d]+' '+fmtDay(addDays(curMonday,d))+'</h3><span class="spacer"></span><span class="num">'+hrs(st.dayH[d])+' · '+eur(st.dayC[d])+'</span>'+dayActs(d,true)+'</div>';
+  for(const role of Object.keys(ROLES)){
+    const ppl=cfg.staff.filter(p=>p.role===role);if(!ppl.length)continue;
+    h+='<div class="mgroup g-'+role+'">'+ROLES[role]+'</div>';
+    for(const p of ppl){
+      const q=st.per[p.id]||{h:0,c:0};const fl="";
+      const list=(weeks[k]||[]).filter(x=>x.staffId===p.id&&x.day===d).sort((a,b)=>toMin(a.start)-toMin(b.start));
+      h+='<div class="mrow '+fl+'"><div class="person"><b><span class="roledot" style="background:var(--'+role+')"></span>'+esc(p.name)+'<span class="tag">'+(STATUSES[p.status]||p.status)+'</span></b><span class="meta num">Settimana: '+hrs(q.h)+overTag(p,q.h)+' · '+eur(q.c)+'</span></div><div class="mshifts">'+
+        (list.length?list.map(x=>'<button class="chip t-'+shiftType(x)+' num" data-act="edit" data-id="'+x.id+'"'+(readOnly?" disabled":"")+'>'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></button>').join(""):'<span class="off">Riposo</span>')+
+        cellButtons(p,d,true)+'</div></div>';
+    }
+  }
+  h+='</div>';
+  return h;
+}
+function rosterHead(title,status,addLabel){
+  return '<div class="row"><h2 class="ph">'+title+'</h2><span class="spacer"></span>'+(readOnly?"":'<button class="btn primary" data-act="newstaff" data-status="'+status+'">'+addLabel+'</button>')+'</div>';
+}
+const editBtn=p=>readOnly?"":'<button class="btn" data-act="editstaff" data-id="'+p.id+'">Modifica</button>';
+const roleCell=p=>'<span class="roledot" style="background:var(--'+p.role+')"></span>'+(ROLES[p.role]||"");
+function monthInfo(){const th=addDays(curMonday,3);return {y:th.getFullYear(),m:th.getMonth(),label:MONTHS_LONG[th.getMonth()]+" "+th.getFullYear()}}
+function monthCount(p,y,m){
+  let h=0,n=0;
+  for(const k in weeks){const mo=mondayFromKey(k);if(!mo)continue;
+    for(const x of weeks[k]){if(x.staffId!==p.id)continue;const d=addDays(mo,x.day);if(d.getFullYear()===y&&d.getMonth()===m){h+=shiftHours(x);n++}}}
+  return {h,n};
+}
+function viewFissi(){
+  const k=curKey(),st=weekStats(k),ppl=cfg.staff.filter(p=>p.status==="fisso");
+  let h=rosterHead("Fissi","fisso","Aggiungi fisso");
+  h+='<div class="row">'+weekHeader()+'</div>';
+  if(!ppl.length)return h+'<div class="panel"><div class="empty">Nessun dipendente fisso ancora. Aggiungi nome, reparto, costo orario e ore di contratto.</div></div>';
+  h+='<div class="panel gridwrap"><table class="list"><thead><tr><th>Nome</th><th>Reparto</th><th class="r">Costo orario</th><th class="r">Contratto</th><th class="r">Pianificate</th><th>Rispetto al contratto</th><th class="r">Costo settimana</th><th></th></tr></thead><tbody>'+
+    ppl.map(p=>{const q=st.per[p.id]||{h:0,c:0};const c=+p.contract||0;const diff=Math.round((q.h-c)*100)/100;
+      const pill=!c?'<span class="pill mute">Nessun contratto</span>':diff>0?'<span class="pill warn">+'+hrs(diff)+' extra</span>':diff<0?'<span class="pill mute">'+hrs(-diff)+' da pianificare</span>':'<span class="pill ok">In linea</span>';
+      return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+roleCell(p)+'</td><td class="r num">'+eur(p.rate)+'</td><td class="r num">'+(c?c+" h":"—")+'</td><td class="r num"><b>'+hrs(q.h)+'</b></td><td>'+pill+'</td><td class="r num">'+eur(q.c)+'</td><td class="r">'+editBtn(p)+'</td></tr>'}).join("")+
+  '</tbody></table></div>';
+  return h;
+}
+function viewStudenti(){
+  const s=S(),y=curMonday.getFullYear(),k=curKey(),wk=weekStats(k);
+  const ppl=cfg.staff.filter(p=>p.status==="studente");
+  let h=rosterHead("Studenti","studente","Aggiungi studente");
+  if(!ppl.length)return h+'<div class="panel"><div class="empty">Nessuno studente nel team.</div></div>';
+  h+='<div class="panel"><div class="cards">'+ppl.map(p=>{const u=studentHours(p,y),pct=u/s.studentLimit,c=pct>1?"crit":pct>=0.9?"warn":"";const q=wk.per[p.id]||{h:0};
+    return '<div class="card"><h4><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</h4><div class="num"><b>'+hrs(u)+'</b> su '+s.studentLimit+' h · restano <b>'+hrs(Math.max(0,s.studentLimit-u))+'</b></div><div class="bar '+c+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div><div class="sub2" style="font-size:12px">'+ROLES[p.role]+' · '+eur(p.rate)+'/h · settimana '+(+k.slice(6))+': '+hrs(q.h)+(+p.prior?' · incluse '+hrs(p.prior)+' altrove':'')+'</div><div>'+editBtn(p)+'</div></div>'}).join("")+
+  '</div></div>';
+  return h;
+}
+function viewIndipendenti(){
+  const k=curKey(),st=weekStats(k),mi=monthInfo(),ppl=cfg.staff.filter(p=>p.status==="indipendente");
+  let h=rosterHead("Indipendenti","indipendente","Aggiungi indipendente");
+  h+='<div class="row">'+weekHeader()+'</div>';
+  if(!ppl.length)return h+'<div class="panel"><div class="empty">Nessun indipendente ancora.</div></div>';
+  let tw=0,tm=0;
+  h+='<div class="panel gridwrap"><table class="list"><thead><tr><th>Nome</th><th>Reparto</th><th class="r">Tariffa / servizio</th><th class="r">Servizi sett.</th><th class="r">Ore sett.</th><th class="r">Costo sett.</th><th class="r">Servizi '+mi.label+'</th><th class="r">Fattura stimata '+mi.label+'</th><th></th></tr></thead><tbody>'+
+    ppl.map(p=>{const q=st.per[p.id]||{h:0,c:0,n:0};const mc=monthCount(p,mi.y,mi.m);const mcost=mc.n*(+p.rate||0);tw+=q.c;tm+=mcost;
+      return '<tr><td><b>'+esc(p.name)+'</b></td><td>'+roleCell(p)+'</td><td class="r num">'+eur(p.rate)+'</td><td class="r num">'+q.n+'</td><td class="r num">'+hrs(q.h)+'</td><td class="r num">'+eur(q.c)+'</td><td class="r num">'+mc.n+'</td><td class="r num"><b>'+eur(mcost)+'</b></td><td class="r">'+editBtn(p)+'</td></tr>'}).join("")+
+    '<tr><td><b>Totale</b></td><td></td><td></td><td></td><td></td><td class="r num"><b>'+eur(tw)+'</b></td><td></td><td class="r num"><b>'+eur(tm)+'</b></td><td></td></tr>'+
+  '</tbody></table></div>';
+  return h;
+}
+const ORDER={fisso:0,studente:1,indipendente:2};
+function viewOre(){
+  const k=curKey(),st=weekStats(k),s=S();
+  let h='<div class="row"><h2 class="ph">Ore e budget</h2></div><div class="row">'+weekHeader()+'</div>';
+  if(!cfg.staff.length)return h+'<div class="panel"><div class="empty">Nessuna persona nel team.</div></div>';
+  const ppl=cfg.staff.slice().sort((a,b)=>(ORDER[a.status]??9)-(ORDER[b.status]??9)||a.name.localeCompare(b.name));
+  let erog=0,cap=0,over=0;const by={};
+  const rows=ppl.map(p=>{
+    const q=st.per[p.id]||{h:0,c:0,n:0};const lim=weekLimit(p);erog+=q.h;cap+=lim;
+    const extra=lim>0?Math.max(0,q.h-lim):0;over+=extra;
+    const b=by[p.status]||(by[p.status]={n:0,h:0,c:0});b.n++;b.h+=q.h;b.c+=q.c;
+    const ph=isIndip(p)?"—":String(s.maxWeek);
+    const pill=lim<=0?'<span class="pill mute">Nessun massimo</span>':extra>0?'<span class="pill crit">+'+hrs(extra)+' a settimana</span>':'<span class="pill ok">Ok</span>';
+    return '<tr class="'+(extra>0?"over":"")+'"><td><b><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</b></td><td>'+(STATUSES[p.status]||p.status)+'</td>'+
+      '<td class="r"><input class="maxin num" type="number" min="0" step="0.5" data-id="'+p.id+'" aria-label="Massimo ore a settimana per '+esc(p.name)+'" value="'+(+p.maxHours>0?p.maxHours:"")+'" placeholder="'+ph+'"'+(readOnly?" disabled":"")+'></td>'+
+      '<td class="r num"><b>'+hrs(q.h)+'</b></td><td class="r num">'+(lim>0?hrs(lim):"—")+'</td><td class="r num">'+(lim>0?hrs(Math.max(0,lim-q.h)):"—")+'</td><td>'+pill+'</td><td class="r num">'+eur(q.c)+'</td></tr>';
+  }).join("");
+  const free=cap-erog;const pct=s.budget>0?st.totC/s.budget:0;const bcls=pct>1?"crit":pct>=0.9?"warn":"";
+  h+='<div class="tiles">'+
+    '<div class="tile"><div class="lbl">Ore erogate</div><div class="val num">'+hrs(erog)+'</div><div class="hint">'+(weeks[k]||[]).length+' turni pianificati</div></div>'+
+    '<div class="tile"><div class="lbl">Ore erogabili</div><div class="val num">'+hrs(cap)+'</div><div class="hint">Somma dei massimi settimanali</div></div>'+
+    '<div class="tile"><div class="lbl">Ore ancora disponibili</div><div class="val num" style="'+(free<0?"color:var(--crit)":"")+'">'+hrs(Math.max(0,free))+'</div><div class="hint">'+(over>0?'<b style="color:var(--crit)">'+hrs(over)+' di sforamento</b>':"Nessuno sforamento")+'</div></div>'+
+    '<div class="tile"><div class="lbl">Budget reale</div><div class="val num">'+eur(st.totC)+'</div><div class="hint">'+(s.budget>0?(st.totC<=s.budget?"Restano "+eur(s.budget-st.totC)+" su "+eur(s.budget):'<b style="color:var(--crit)">Sforato di '+eur(st.totC-s.budget)+'</b> su '+eur(s.budget)):"Nessun budget impostato")+'</div>'+(s.budget>0?'<div class="bar '+bcls+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div>':"")+'</div>'+
+  '</div>';
+  h+='<div class="panel gridwrap"><table class="list ore-t"><thead><tr><th>Nome</th><th>Statuto</th><th class="r">Max ore / sett.</th><th class="r">Erogate</th><th class="r">Erogabili</th><th class="r">Disponibili</th><th>Sforamento</th><th class="r">Costo reale</th></tr></thead><tbody>'+rows+
+    '<tr><td><b>Totale</b></td><td></td><td></td><td class="r num"><b>'+hrs(erog)+'</b></td><td class="r num"><b>'+hrs(cap)+'</b></td><td class="r num"><b>'+hrs(Math.max(0,free))+'</b></td><td>'+(over>0?'<span class="pill crit">+'+hrs(over)+'</span>':"")+'</td><td class="r num"><b>'+eur(st.totC)+'</b></td></tr></tbody></table></div>';
+  h+='<div class="panel gridwrap"><div class="hd"><h3>Costo per statuto</h3></div><table class="list"><thead><tr><th>Statuto</th><th class="r">Persone</th><th class="r">Ore</th><th class="r">Costo</th><th class="r">Quota</th></tr></thead><tbody>'+
+    Object.keys(STATUSES).filter(x=>by[x]).map(x=>'<tr><td>'+STATUSES[x]+'</td><td class="r num">'+by[x].n+'</td><td class="r num">'+hrs(by[x].h)+'</td><td class="r num">'+eur(by[x].c)+'</td><td class="r num">'+(st.totC?Math.round(by[x].c/st.totC*100):0)+'%</td></tr>').join("")+
+  '</tbody></table></div>';
+  return h;
+}
+const staffLink=p=>new URL("staff.html#"+p.token,location.href).href;
+function viewLinks(){
+  let h='<div class="row"><h2 class="ph">Link staff</h2></div>';
+  if(!cfg.staff.length)return h+'<div class="panel"><div class="empty">Aggiungi prima il team.</div></div>';
+  h+='<div class="panel gridwrap"><table class="list"><thead><tr><th>Nome</th><th>Statuto</th><th>Link</th><th></th></tr></thead><tbody>'+
+    cfg.staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>{
+      const ok=!!p.token,on=p.linkActive!==false;
+      const msg="Ciao "+p.name+"! Qui trovi sempre i tuoi turni aggiornati"+(cfg.venue?" da "+cfg.venue:"")+": "+(ok?staffLink(p):"");
+      return '<tr class="'+(on?"":"off-row")+'"><td><b>'+esc(p.name)+'</b></td><td>'+(STATUSES[p.status]||p.status)+'</td><td>'+(on?'<span class="pill ok">Attivo</span>':'<span class="pill mute">Disattivato</span>')+'</td><td><div class="actions">'+
+        (ok&&on?'<a class="btn primary" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">WhatsApp</a><button class="btn" data-act="copylink" data-id="'+p.id+'">Copia link</button><a class="btn" href="'+esc(staffLink(p))+'" target="_blank" rel="noopener">Apri</a>':(ok?"":'<span class="sub2">Salvataggio…</span>'))+
+        '<button class="btn" data-act="togglelink" data-id="'+p.id+'">'+(on?"Disattiva":"Riattiva")+'</button>'+(ok?'<button class="btn" data-act="newlink" data-id="'+p.id+'">Nuovo link</button>':'')+'</div></td></tr>'}).join("")+
+  '</tbody></table></div>';
+  return h;
+}
+async function newLink(id){
+  const p=staffById(id);if(!p)return;await idle("cfg");
+  const {data,error}=await sb.from("staff").update({access_token:uid()}).eq("id",id).select("access_token").single();
+  if(error){toast("Non riuscito, riprova");return}
+  p.token=data.access_token;render();toast("Nuovo link creato per "+p.name);
+}
+async function forgotPassword(){
+  const em=(document.getElementById("em")||{}).value||"";
+  if(!em){authMsg="Scrivi la tua email, poi premi «Password dimenticata?»";render();return}
+  const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
+  authMsg=error?"Invio non riuscito: "+error.message:"Ti abbiamo mandato un'email per scegliere una nuova password.";render();
+}
+function viewLogin(){
+  if(recovery)return '<div class="auth panel"><div class="hd"><h3>Nuova password</h3></div><form class="form" id="pwform"><div class="field"><label for="np">Nuova password</label><input id="np" type="password" minlength="8" autocomplete="new-password" required></div><div class="err">'+esc(authMsg)+'</div><button class="btn primary" type="submit">Salva password</button></form></div>';
+  return '<div class="auth panel"><div class="hd"><h3>Accedi a Rush</h3></div><form class="form" id="loginform">'+
+    '<div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" required></div>'+
+    '<div class="field"><label for="pw">Password</label><input id="pw" type="password" minlength="8" autocomplete="current-password" required><span class="help">Almeno 8 caratteri</span></div>'+
+    '<div class="err" id="autherr">'+esc(authMsg)+'</div>'+
+    '<div class="row"><button class="btn primary" type="submit" data-mode="in">Accedi</button><button class="btn" type="submit" data-mode="up">Crea account</button><span class="spacer"></span><button class="linkbtn" type="button" data-act="forgot">Password dimenticata?</button></div>'+
+  '</form></div>';
+}
+function viewSettings(){
+  const s=S();const dis=readOnly?" disabled":"";
+  const f=(id,label,val,help,type="number",step="1")=>'<div class="field"><label for="'+id+'">'+label+'</label><input id="'+id+'" type="'+type+'" step="'+step+'" value="'+esc(val)+'"'+dis+'>'+(help?'<span class="help">'+help+'</span>':"")+'</div>';
+  return '<div class="row"><h2>Impostazioni</h2></div><div class="panel"><div class="form">'+
+    f("set-venue","Nome del locale",cfg.venue||"","","text")+
+    f("set-budget","Budget personale settimanale (€)",s.budget,"Costo aziendale massimo che vuoi spendere a settimana. 0 = nessun budget.")+
+    '<div class="two">'+f("set-maxDay","Ore massime al giorno",s.maxDay,"Fissi e studenti",'number','0.5')+f("set-maxWeek","Massimo ore a settimana predefinito",s.maxWeek,"Se non imposti un massimo per la persona",'number','0.5')+'</div>'+
+    '<div class="two">'+f("set-minRest","Riposo minimo tra due giorni (ore)",s.minRest,"",'number','0.5')+f("set-studentLimit","Limite annuale ore studente",s.studentLimit,"")+'</div>'+
+    '<div class="field"><label for="set-defaultPause">Pausa per ogni nuovo turno</label><select id="set-defaultPause"'+dis+'>'+[0,15,30,45,60].map(v=>'<option value="'+v+'"'+(+s.defaultPause===v?" selected":"")+'>'+(v?v+" minuti":"Nessuna pausa")+'</option>').join("")+'</select></div>'+
+    (readOnly?"":'<div><button class="btn" data-act="applypause">Applica questa pausa a tutti i turni della settimana '+(+curKey().slice(6))+'</button></div>')+
+    '<p class="help" style="font-size:12px;color:var(--muted);margin:0">Sono soglie di avviso, non regole legali. Verifica i valori corretti per il tuo locale con il segretariato sociale.</p>'+
+  '</div></div><div class="panel"><div class="hd"><h3>Account</h3></div><div class="form"><div class="sub2">'+esc(session&&session.user?session.user.email:"")+'</div><div><button class="btn" data-act="logout">Esci</button></div></div></div>';
+}
+
+/* ---------- finestre ---------- */
+function openModal(title,body,footer,onMount){
+  const layer=document.getElementById("layer");
+  layer.innerHTML='<div class="overlay" data-act="close-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'"><div class="hd"><h3>'+esc(title)+'</h3></div><div class="bd">'+body+'</div><div class="ft">'+footer+'</div></div></div>';
+  const first=layer.querySelector("input,select,textarea,button");if(first)first.focus();
+  if(onMount)onMount(layer);
+}
+const closeModal=()=>{document.getElementById("layer").innerHTML=""};
+function toast(t){document.querySelectorAll(".toast").forEach(x=>x.remove());const el=document.createElement("div");el.className="toast";el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),2200)}
+async function copyText(text){
+  try{await navigator.clipboard.writeText(text);toast("Copiato negli appunti")}
+  catch(e){openModal("Copia il testo",'<div class="field"><label for="cp">Seleziona e copia</label><textarea id="cp" rows="12">'+esc(text)+'</textarea></div>','<span class="spacer"></span><button class="btn primary" data-act="close">Chiudi</button>',l=>{const t=l.querySelector("#cp");t.focus();t.select()})}
+}
+function shiftModal(shift,staffId,day){
+  const isNew=!shift;const x=shift||{start:"18:00",end:"23:30",pause:S().defaultPause||0,note:"",staffId,day};
+  const body='<div class="presets">'+PRESETS.map((p,i)=>'<button class="btn" data-act="preset" data-i="'+i+'">'+p[0]+' '+p[1]+'–'+p[2]+'</button>').join("")+'</div>'+
+    '<div class="two"><div class="field"><label for="sh-staff">Dipendente</label><select id="sh-staff">'+cfg.staff.map(p=>'<option value="'+p.id+'"'+(p.id===x.staffId?" selected":"")+'>'+esc(p.name)+'</option>').join("")+'</select></div>'+
+    '<div class="field"><label for="sh-day">Giorno</label><select id="sh-day">'+DAYS_LONG.map((d,i)=>'<option value="'+i+'"'+(i===+x.day?" selected":"")+'>'+d+' '+addDays(curMonday,i).getDate()+'</option>').join("")+'</select></div></div>'+
+    '<div class="three"><div class="field"><label for="sh-start">Inizio</label><input id="sh-start" type="time" value="'+esc(x.start)+'"></div><div class="field"><label for="sh-end">Fine</label><input id="sh-end" type="time" value="'+esc(x.end)+'"></div><div class="field"><label for="sh-pause">Pausa (min)</label><input id="sh-pause" type="number" min="0" step="5" value="'+(+x.pause||0)+'"></div></div>'+
+    '<div class="presets" aria-label="Pausa rapida"><span class="sub2" style="align-self:center">Pausa:</span>'+[0,15,30,60].map(v=>'<button class="btn" data-act="pz" data-v="'+v+'">'+(v?v+" min":"Nessuna")+'</button>').join("")+'</div>'+
+    '<div class="field"><label for="sh-note">Nota</label><input id="sh-note" type="text" maxlength="40" placeholder="es. apertura, eventi, terrazza" value="'+esc(x.note||"")+'"></div>'+
+    '<div class="help" id="sh-sum" style="font-size:13px;color:var(--muted)"></div><div class="err" id="sh-err"></div>';
+  const foot=(isNew?"":'<button class="btn danger" data-act="sh-del" data-id="'+x.id+'">Elimina</button><button class="btn" data-act="sh-copy" data-id="'+x.id+'">Copia</button>')+'<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="sh-save" data-id="'+(x.id||"")+'">'+(isNew?"Aggiungi turno":"Salva")+'</button>';
+  openModal(isNew?"Nuovo turno":"Modifica turno",body,foot,l=>{
+    const upd=()=>{const t={start:l.querySelector("#sh-start").value,end:l.querySelector("#sh-end").value,pause:+l.querySelector("#sh-pause").value||0};const p=staffById(l.querySelector("#sh-staff").value);const h=shiftHours(t);l.querySelector("#sh-sum").textContent=t.start&&t.end?hrs(h)+(p?" · "+eur(shiftCost(t,p))+(isIndip(p)?" (1 servizio)":""):"")+(toMin(t.end)<=toMin(t.start)?" · finisce dopo mezzanotte":""):"";};
+    l.addEventListener("input",upd);l.addEventListener("change",upd);upd();
+  });
+}
+function staffModal(p,defStatus){
+  const isNew=!p;const ds=defStatus||"fisso";
+  const x=p||{name:"",role:"sala",status:ds,rate:"",contract:ds==="fisso"?38:0,prior:0};
+  const noun={fisso:"fisso",studente:"studente",indipendente:"indipendente"}[x.status]||"collaboratore";
+  const opt=(o,v)=>Object.entries(o).map(([k,l])=>'<option value="'+k+'"'+(k===v?" selected":"")+'>'+l+'</option>').join("");
+  const body='<div class="field"><label for="st-name">Nome</label><input id="st-name" type="text" maxlength="40" value="'+esc(x.name)+'"></div>'+
+    '<div class="two"><div class="field"><label for="st-role">Reparto</label><select id="st-role">'+opt(ROLES,x.role)+'</select></div><div class="field"><label for="st-status">Statuto</label><select id="st-status">'+opt(STATUSES,STATUSES[x.status]?x.status:"fisso")+'</select></div></div>'+
+    '<div class="two"><div class="field"><label for="st-rate" id="st-rate-l">Costo orario aziendale (€)</label><input id="st-rate" type="number" min="0" step="0.5" value="'+esc(x.rate)+'"><span class="help" id="st-rate-h">Lordo + contributi</span></div><div class="field"><label for="st-max">Massimo ore / settimana</label><input id="st-max" type="number" min="0" step="0.5" value="'+(+x.maxHours>0?x.maxHours:"")+'" placeholder="Predefinito"></div></div>'+
+    '<div class="field" id="st-contract-f"><label for="st-contract">Ore contratto / settimana</label><input id="st-contract" type="number" min="0" step="0.5" value="'+esc(x.contract||0)+'"></div>'+
+    '<div class="field" id="st-prior-f"><label for="st-prior">Ore studente già usate quest\'anno</label><input id="st-prior" type="number" min="0" step="0.5" value="'+esc(x.prior||0)+'"><span class="help">Presso altri datori di lavoro o prima di usare Rush</span></div><div class="err" id="st-err"></div>';
+  const foot=(isNew?"":'<button class="btn danger" data-act="st-del" data-id="'+x.id+'">Elimina</button>')+'<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="st-save" data-id="'+(x.id||"")+'">'+(isNew?"Aggiungi":"Salva")+'</button>';
+  openModal(isNew?"Nuovo "+noun:"Modifica "+(x.name||noun),body,foot,l=>{
+    const tog=()=>{const v=l.querySelector("#st-status").value;
+      l.querySelector("#st-prior-f").style.display=v==="studente"?"":"none";
+      l.querySelector("#st-contract-f").style.display=v==="fisso"?"":"none";
+      l.querySelector("#st-rate-l").textContent=v==="indipendente"?"Tariffa per servizio (€)":"Costo orario aziendale (€)";
+      l.querySelector("#st-rate-h").textContent=v==="indipendente"?"IVA esclusa · 1 turno = 1 servizio":"Lordo + contributi";};
+    l.querySelector("#st-status").addEventListener("change",tog);tog();
+  });
+}
+function confirmModal(title,text,okLabel,act){openModal(title,'<p style="margin:0">'+esc(text)+'</p>','<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="'+act+'">'+esc(okLabel)+'</button>')}
+
+/* ---------- testi da copiare ---------- */
+function waText(ids){
+  const k=curKey(),m=curMonday;let out="Turni "+fmtDay(m)+" – "+fmtDay(addDays(m,6))+(cfg.venue?" · "+cfg.venue:"")+"\n";
+  for(const id of ids){
+    const p=staffById(id);const list=(weeks[k]||[]).filter(x=>x.staffId===id);
+    if(ids.length>1){if(!list.length)continue;out+="\n*"+p.name+"*\n"}else out+="\n";
+    for(let d=0;d<7;d++){const ds=list.filter(x=>x.day===d).sort((a,b)=>toMin(a.start)-toMin(b.start));
+      if(ds.length)out+=DAYS[d]+" "+addDays(m,d).getDate()+": "+ds.map(x=>x.start+"–"+x.end+(x.note?" ("+x.note+")":"")).join(", ")+"\n";
+      else if(ids.length===1)out+=DAYS[d]+" "+addDays(m,d).getDate()+": riposo\n";}
+  }
+  return out.trim();
+}
+function csvText(){
+  const k=curKey(),rows=[["data","dipendente","reparto","statuto","inizio","fine","pausa_min","ore","costo_eur","nota"]];
+  for(const x of (weeks[k]||[]).slice().sort((a,b)=>a.day-b.day||toMin(a.start)-toMin(b.start))){
+    const p=staffById(x.staffId);if(!p)continue;const d=addDays(curMonday,x.day);const h=shiftHours(x);
+    rows.push([d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"),p.name,ROLES[p.role],STATUSES[p.status],x.start,x.end,+x.pause||0,h.toFixed(2),shiftCost(x,p).toFixed(2),x.note||""]);
+  }
+  return rows.map(r=>r.map(v=>/[;"\n]/.test(String(v))?'"'+String(v).replace(/"/g,'""')+'"':v).join(";")).join("\n");
+}
+
+/* ---------- eventi ---------- */
+document.addEventListener("click",e=>{
+  const t=e.target.closest("[data-act]");if(!t)return;
+  const act=t.dataset.act,k=curKey();
+  if(act==="close-bg"){if(e.target===t)closeModal();return}
+  if(act==="close"){closeModal();return}
+  if(act==="prev"){curMonday=addDays(curMonday,-7);render();return}
+  if(act==="next"){curMonday=addDays(curMonday,7);render();return}
+  if(act==="thisweek"){curMonday=mondayOf(new Date());dayIdx=(new Date().getDay()+6)%7;render();return}
+  if(act==="day"){dayIdx=+t.dataset.d;render();return}
+  if(act==="wa-team"){copyText(waText(cfg.staff.map(p=>p.id)));return}
+  if(act==="csv"){copyText(csvText());return}
+  if(act==="copylink"){const p=staffById(t.dataset.id);if(p&&p.token)copyText(staffLink(p));return}
+  if(act==="forgot"){forgotPassword();return}
+  if(act==="logout"){sb.auth.signOut();return}
+  if(act==="togglelink"){const p=staffById(t.dataset.id);if(p){p.linkActive=p.linkActive===false;saveCfg();render();toast(p.linkActive?"Link riattivato":"Link disattivato: "+p.name+" non vede più i turni")}return}
+  if(act==="newlink"){confirmModal("Nuovo link","Il link attuale di "+(staffById(t.dataset.id)||{}).name+" smetterà di funzionare. Dovrai mandargli quello nuovo.","Crea nuovo link","do-newlink:"+t.dataset.id);return}
+  if(act.startsWith("do-newlink:")){newLink(act.slice(11));closeModal();return}
+  if(readOnly)return;
+  if(act==="add"){shiftModal(null,t.dataset.staff,+t.dataset.day);return}
+  if(act==="edit"){const x=(weeks[k]||[]).find(z=>z.id===t.dataset.id);if(x)shiftModal(x);return}
+  if(act==="preset"){const p=PRESETS[+t.dataset.i];document.getElementById("sh-start").value=p[1];document.getElementById("sh-end").value=p[2];document.getElementById("sh-start").dispatchEvent(new Event("input",{bubbles:true}));return}
+  if(act==="clip-clear"){clip=null;render();return}
+  if(act==="sh-copy"){const x=(weeks[k]||[]).find(z=>z.id===t.dataset.id);closeModal();if(x)copyShift(x);return}
+  if(act==="paste"){pasteShift(t.dataset.staff,+t.dataset.day);return}
+  if(act==="copyday"){const d=+t.dataset.day;const list=(weeks[k]||[]).filter(x=>x.day===d&&staffById(x.staffId));if(!list.length){toast("Nessun turno da copiare");return}
+    clip={type:"day",label:DAYS_LONG[d]+" "+addDays(curMonday,d).getDate(),shifts:list.map(x=>({staffId:x.staffId,start:x.start,end:x.end,pause:+x.pause||0,note:x.note||""}))};render();toast(clip.label+" copiato");return}
+  if(act==="pasteday"){pasteDay(+t.dataset.day);return}
+  if(act==="pz"){const el=document.getElementById("sh-pause");el.value=t.dataset.v;el.dispatchEvent(new Event("input",{bubbles:true}));return}
+  if(act==="applypause"){const v=S().defaultPause||0;let n=0;weeks[k]=(weeks[k]||[]).map(x=>{if(v<shiftMinutes(x)){n++;return {...x,pause:v}}return x});saveWeek(k);render();toast("Pausa di "+v+" min applicata a "+n+" turni");return}
+  if(act==="sh-save"){
+    const g=id=>document.getElementById(id).value;
+    const x={id:t.dataset.id||uid(),staffId:g("sh-staff"),day:+g("sh-day"),start:g("sh-start"),end:g("sh-end"),pause:Math.max(0,+g("sh-pause")||0),note:g("sh-note").trim()};
+    if(toMin(x.start)==null||toMin(x.end)==null){document.getElementById("sh-err").textContent="Inserisci ora di inizio e di fine.";return}
+    if(x.start===x.end){document.getElementById("sh-err").textContent="Inizio e fine non possono coincidere.";return}
+    if(x.pause>=shiftMinutes(x)){document.getElementById("sh-err").textContent="La pausa è più lunga del turno.";return}
+    const arr=(weeks[k]||[]).filter(z=>z.id!==x.id);arr.push(x);weeks[k]=arr;saveWeek(k);closeModal();render();return;
+  }
+  if(act==="sh-del"){weeks[k]=(weeks[k]||[]).filter(z=>z.id!==t.dataset.id);saveWeek(k);closeModal();render();return}
+  if(act==="copyprev"){
+    const pk=weekKey(addDays(curMonday,-7));const src=(weeks[pk]||[]).filter(x=>staffById(x.staffId));
+    if(!src.length){toast("La settimana precedente è vuota");return}
+    if((weeks[k]||[]).length){confirmModal("Copia settimana precedente","Questa settimana ha già "+weeks[k].length+" turni. Vuoi sostituirli con i "+src.length+" turni della settimana precedente?","Sostituisci","do-copyprev");return}
+    doCopyPrev();return;
+  }
+  if(act==="do-copyprev"){doCopyPrev();closeModal();return}
+  if(act==="newstaff"){staffModal(null,t.dataset.status);return}
+  if(act==="editstaff"){staffModal(staffById(t.dataset.id));return}
+  if(act==="st-save"){
+    const g=id=>document.getElementById(id).value;const name=g("st-name").trim();
+    if(!name){document.getElementById("st-err").textContent="Inserisci il nome.";return}
+    const p={id:t.dataset.id||uid(),name,role:g("st-role"),status:g("st-status"),rate:Math.max(0,+g("st-rate")||0),contract:g("st-status")==="fisso"?Math.max(0,+g("st-contract")||0):0,maxHours:Math.max(0,+g("st-max")||0),prior:g("st-status")==="studente"?Math.max(0,+g("st-prior")||0):0};
+    const i=cfg.staff.findIndex(z=>z.id===p.id);if(i>=0)cfg.staff[i]=p;else cfg.staff.push(p);
+    saveCfg();closeModal();render();return;
+  }
+  if(act==="st-del"){const p=staffById(t.dataset.id);confirmModal("Elimina dipendente","Eliminare "+(p?p.name:"")+"? Verranno eliminati anche tutti i suoi turni.","Elimina","do-stdel:"+t.dataset.id);return}
+  if(act.startsWith("do-stdel:")){const id=act.slice(9);cfg.staff=cfg.staff.filter(z=>z.id!==id);saveCfg();closeModal();render();return}
+});
+function doCopyPrev(){const k=curKey(),pk=weekKey(addDays(curMonday,-7));weeks[k]=(weeks[pk]||[]).filter(x=>staffById(x.staffId)).map(x=>({...x,id:uid()}));saveWeek(k);render();toast("Turni copiati")}
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.classList&&t.classList.contains("maxin")&&!readOnly){const p=staffById(t.dataset.id);if(p){p.maxHours=Math.max(0,+t.value||0);saveCfg();render()}return}
+  if(!t.id||!t.id.startsWith("set-")||readOnly)return;
+  const key=t.id.slice(4);
+  if(key==="venue"){cfg.venue=t.value.trim();}
+  else{const v=+t.value;if(!(v>=0)){t.value=S()[key];return}cfg.settings={...S(),[key]:v}}
+  saveCfg();render();
+});
+document.addEventListener("submit",async e=>{
+  e.preventDefault();const f=e.target;
+  if(f.id==="pwform"){const np=document.getElementById("np").value;const {error}=await sb.auth.updateUser({password:np});
+    if(error){authMsg=error.message;render();return}recovery=false;authMsg="";toast("Password aggiornata");if(session)start();else render();return}
+  if(f.id!=="loginform")return;
+  const btn=e.submitter||f.querySelector("[data-mode=in]");const em=document.getElementById("em").value.trim(),pw=document.getElementById("pw").value;
+  f.querySelectorAll("button").forEach(b=>b.disabled=true);
+  if(btn.dataset.mode==="up"){
+    const {data,error}=await sb.auth.signUp({email:em,password:pw,options:{emailRedirectTo:location.origin+location.pathname}});
+    if(error)authMsg=traduci(error.message);else if(!data.session)authMsg="Account creato. Apri l'email di conferma che ti abbiamo mandato, poi torna qui e accedi.";else authMsg="";
+  }else{
+    const {error}=await sb.auth.signInWithPassword({email:em,password:pw});
+    authMsg=error?traduci(error.message):"";
+  }
+  render();
+});
+function traduci(m){
+  if(/Invalid login/i.test(m))return "Email o password non corretti.";
+  if(/Email not confirmed/i.test(m))return "Devi prima confermare l'email: controlla la posta.";
+  if(/already registered/i.test(m))return "Esiste già un account con questa email: premi Accedi.";
+  if(/Password should be/i.test(m))return "La password deve avere almeno 8 caratteri.";
+  return m;
+}
+document.addEventListener("keydown",e=>{
+  const modal=!!document.querySelector(".overlay");
+  if(e.key==="Escape"){if(modal)closeModal();else if(clip){clip=null;render()}return}
+  const a=document.activeElement;
+  if((e.key==="Enter"||e.key===" ")&&a&&a.tagName==="DIV"&&a.classList.contains("chip")){e.preventDefault();a.click();return}
+  if(modal||readOnly||!(e.ctrlKey||e.metaKey)||!a)return;
+  const kk=e.key.toLowerCase();
+  if(kk==="c"&&a.classList.contains("chip")){const x=(weeks[curKey()]||[]).find(z=>z.id===a.dataset.id);if(x){e.preventDefault();copyShift(x)}}
+  else if(kk==="v"&&a.dataset&&a.dataset.staff&&clip&&clip.type==="shift"){e.preventDefault();pasteShift(a.dataset.staff,+a.dataset.day)}
+});
+document.addEventListener("dragstart",e=>{
+  const c=e.target.closest&&e.target.closest('.chip[draggable="true"]');if(!c||readOnly)return;
+  dragId=c.dataset.id;try{e.dataTransfer.setData("text/plain",dragId);e.dataTransfer.effectAllowed="copyMove"}catch(_){}
+  c.classList.add("dragging");
+});
+document.addEventListener("dragend",()=>{dragId=null;document.querySelectorAll(".dragging,.dropping").forEach(el=>el.classList.remove("dragging","dropping"))});
+document.addEventListener("dragover",e=>{
+  if(!dragId)return;const td=e.target.closest&&e.target.closest("td.cell[data-staff]");if(!td)return;
+  e.preventDefault();try{e.dataTransfer.dropEffect=e.shiftKey?"move":"copy"}catch(_){}
+  document.querySelectorAll("td.dropping").forEach(el=>{if(el!==td)el.classList.remove("dropping")});td.classList.add("dropping");
+});
+document.addEventListener("drop",e=>{
+  const td=e.target.closest&&e.target.closest("td.cell[data-staff]");if(!dragId||!td)return;
+  e.preventDefault();const k=curKey(),src=(weeks[k]||[]).find(z=>z.id===dragId);dragId=null;
+  if(!src){render();return}
+  const staffId=td.dataset.staff,day=+td.dataset.day;
+  if(src.staffId===staffId&&src.day===day){render();return}
+  if(e.shiftKey){src.staffId=staffId;src.day=day;saveWeek(k);render();toast("Turno spostato");return}
+  if(addShiftTo(k,staffId,day,src)){saveWeek(k);render();toast("Turno copiato")}else{render();toast("Questo turno c'è già")}
+});
+window.addEventListener("hashchange",render);
+let lastMobile=isMobile();
+window.addEventListener("resize",()=>{if(isMobile()!==lastMobile){lastMobile=isMobile();render()}});
+
+/* ---------- avvio ---------- */
+async function start(){
+  if(starting)return;starting=true;
+  try{
+    mode="loading";render();setStatus("warn","Caricamento…");
+    const {data,error}=await sb.rpc("ensure_org");if(error)throw error;
+    orgId=data;await loadAll();mode="db";render();setStatus("ok","Tutto salvato");
+  }catch(e){console.error(e);mode="db";setStatus("crit","Impossibile caricare i dati: controlla la connessione e ricarica");render()}
+  finally{starting=false}
+}
+(async()=>{
+  const C=window.RUSH_CONFIG||{};
+  if(!C.supabaseUrl||!C.supabaseAnonKey||/INSERISCI/.test(C.supabaseUrl+C.supabaseAnonKey)||!window.supabase){mode="setup";setStatus("crit","Da configurare");render();return}
+  sb=window.supabase.createClient(C.supabaseUrl,C.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  sb.auth.onAuthStateChange((ev,s)=>{
+    session=s;
+    if(ev==="PASSWORD_RECOVERY"){recovery=true;mode="login";render();return}
+    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};mode="login";authMsg="";setStatus("ok","");render();return}
+    if((ev==="SIGNED_IN"||ev==="INITIAL_SESSION")&&s&&!orgId&&!recovery)setTimeout(start,0);
+  });
+  const {data}=await sb.auth.getSession();session=data.session;
+  if(!session&&!recovery){mode="login";setStatus("ok","");render()}
+})();
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&mode==="db"&&orgId&&!pending()&&!document.querySelector(".overlay")&&Date.now()-lastLoad>60000){
+    loadAll().then(render).catch(()=>{});
+  }
+});
+if("serviceWorker" in navigator&&location.protocol==="https:")window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+# Sistema
+.DS_Store
+
+# Dati reali (tariffe del personale): MAI su GitHub
+supabase/import-dati-attuali.sql
+supabase/*-dati-*.sql
