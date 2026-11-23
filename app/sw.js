@@ -1,6 +1,6 @@
 // Rush · service worker: l'app si apre anche con connessione debole.
 // Strategia: prima la rete, se manca usa la copia salvata. I dati (Supabase) non vengono mai salvati qui.
-const CACHE = "rush-v2";
+const CACHE = "rush-v1";
 const SHELL = ["./", "index.html", "staff.html", "config.js", "vendor/supabase.js",
   "manifest.webmanifest", "manifest-staff.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 self.addEventListener("install", e => {
