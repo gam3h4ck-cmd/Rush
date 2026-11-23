@@ -94,3 +94,22 @@ Vale anche per i dipendenti con il loro link: avranno l'icona "Turni" che apre d
 - **Aggiornamenti:** quando ti mando una nuova versione, in Cloudflare apri il progetto → **Create deployment** → trascina di nuovo la cartella `app`. Tieni sempre il tuo `config.js`.
 - **Dominio tuo (es. rush.be):** in Cloudflare, progetto → **Custom domains**. Poi aggiorna Site URL e Redirect URLs in Supabase.
 - **Sicurezza:** i dipendenti vedono solo nome, turni e colleghi in turno con loro. Tariffe, budget e massimi sono leggibili solo da te. Ogni locale vede solo i propri dati.
+
+---
+
+## Aggiornamento: ferie, giorni liberi e disponibilità
+
+Da fare **una sola volta**, prima o subito dopo aver pubblicato la nuova versione dell'app.
+
+1. In Supabase apri **SQL Editor → New query**.
+2. Copia tutto il file `supabase/aggiornamento-richieste.sql`, incollalo e premi **Run**.
+   Deve comparire "Success. No rows returned". Se lo rilanci per sbaglio non succede niente: non cancella dati.
+3. Ricarica l'app.
+
+Cosa cambia:
+- **Dipendenti** (dal loro link): scheda **Ferie e giorni liberi** per chiedere uno o più giorni e vedere se la richiesta è approvata o rifiutata. Possono annullare le richieste ancora in attesa.
+- **Studenti**: in più la scheda **Disponibilità**, settimana per settimana, giorno per giorno: tutto il giorno, solo pranzo, solo cena o non disponibile, con una nota. Fino a 14 settimane in anticipo.
+- **Tu** (admin): nuova scheda **Richieste** con le richieste da approvare o rifiutare (con motivo), le disponibilità degli studenti per settimana e lo storico. Con **Aggiungi assenza** inserisci tu un'assenza già approvata.
+- **Planning**: ogni casella mostra ferie, giorni liberi e disponibilità. Se metti un turno a chi è in ferie la casella diventa rossa; se la richiesta è in attesa o il turno è fuori dalla disponibilità dello studente diventa gialla. Il turno si può comunque salvare.
+
+Se pubblichi l'app prima di aver fatto il passo 2, tutto il resto continua a funzionare: la scheda Richieste ti ricorda di eseguire il file.

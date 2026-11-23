@@ -256,6 +256,30 @@ body.hasclip .toast{bottom:84px}
 .chip.static{cursor:default;margin:0;font-size:15px;padding:8px 12px;width:100%}
 .chip.static small{margin-top:1px}
 .stale{font-size:12px;color:var(--muted)}
+.seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;overflow-x:auto;scrollbar-width:none}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 10px;font-weight:700;font-size:14px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--accent);color:var(--accent-ink);box-shadow:0 2px 0 #9e3020}
+.seg button:focus-visible,.slots button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg.small{max-width:360px}
+.cnt{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--oil);color:var(--ink);font-size:11px;font-weight:800;margin-left:4px}
+.flabel{font-size:13px;font-weight:700}
+.okmsg{color:var(--basil);font-size:14px;font-weight:600}
+.req{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.req:last-child{border-bottom:0}
+.req-main{display:grid;gap:3px}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.drow{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+.drow .day b{font-family:var(--font-display);font-size:18px}
+.drow .day span{font-size:12px;color:var(--muted)}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.slots button{border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:8px 4px;font-weight:700;font-size:13px;color:var(--muted);cursor:pointer}
+.slots button.on{color:var(--ink)}
+.s-tutto{background:var(--t-pranzo-soft)!important;border-color:var(--basil)!important}
+.s-pranzo{background:#fff7e3!important;border-color:var(--oil)!important}
+.s-cena{background:var(--t-cena-soft)!important;border-color:var(--t-cena)!important}
+.s-no{background:var(--crit-soft)!important;border-color:var(--crit)!important}
+.slot{display:inline-block;border:1px solid;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700}
+@media (max-width:420px){.drow{grid-template-columns:1fr;gap:6px}}
 </style>
 <script src="config.js"></script>
 <script src="vendor/supabase.js"></script>
@@ -294,13 +318,48 @@ if(/^[0-9a-f-]{36}$/i.test(token))store.set("rush-staff-token",token);else token
 const today=new Date();
 let monday=mondayOf(today);
 let week=null, upcoming=null, sb=null, offline=false;
+let portal=null, portalOk=false;          // richieste e disponibilità (null se il database non è aggiornato)
+let view="turni";                         // turni | richieste | disp
+let reqForm={kind:"ferie",start:"",end:"",note:""}, reqMsg="", reqErr="", sending=false;
+let drafts={}, dispMsg="", dispErr="", saving=false;
+const KINDS={ferie:"Ferie",libero:"Giorno libero"};
+const RSTATUS={attesa:["In attesa","warn"],approvata:["Approvata","ok"],rifiutata:["Rifiutata","crit"]};
+const SLOTS={tutto:"Tutto il giorno",pranzo:"Solo pranzo",cena:"Solo cena",no:"Non disponibile"};
+const SLOT_BTN={tutto:"Tutto",pranzo:"Pranzo",cena:"Cena",no:"No"};
+const DISP_WEEKS=14;                      // settimane future in cui lo studente può indicare la disponibilità
 
 function setStatus(t){document.getElementById("status").innerHTML=t?'<span class="dot '+(offline?"warn":"ok")+'"></span><span>'+esc(t)+'</span>':""}
 function msg(html){document.getElementById("main").innerHTML='<div class="panel"><div class="empty">'+html+'</div></div>'}
+const isStudent=()=>!!(portalOk&&portal&&portal.status==="studente");
+const portalFrom=()=>addDays(mondayOf(today),-7);
+const portalTo=()=>addDays(mondayOf(today),7*(DISP_WEEKS+1)-1);
+const fmtDayW=d=>DAYS[(d.getDay()+6)%7]+" "+fmtDay(d);
+function fmtRange(a,b){const s=parseYmd(a),e=parseYmd(b);return ymd(s)===ymd(e)?fmtDayW(s):fmtDayW(s)+" – "+fmtDayW(e)}
+const nDays=(a,b)=>Math.round((parseYmd(b)-parseYmd(a))/86400000)+1;
+function fmtStamp(v){const d=new Date(v);if(isNaN(d))return "";return fmtDay(d)+" alle "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function errText(e){const m=String((e&&e.message)||"");
+  if(/passato/.test(m))return "La data è già passata.";
+  if(/periodo/.test(m))return "Controlla le date: la fine deve essere dopo l'inizio e al massimo 61 giorni.";
+  if(/troppo lontana/.test(m))return "Puoi chiedere al massimo con un anno di anticipo.";
+  if(/troppe/.test(m))return "Hai già troppe richieste in attesa.";
+  if(/non modificabile/.test(m))return "Questa settimana non si può più modificare.";
+  if(/link/.test(m))return "Il tuo link non è più valido: chiedi un nuovo link al tuo responsabile.";
+  return "Invio non riuscito. Controlla la connessione e riprova.";}
 
 async function fetchRange(from,to){
   const {data,error}=await sb.rpc("staff_schedule",{p_token:token,p_from:ymd(from),p_to:ymd(to)});
   if(error)throw error;return data;
+}
+async function fetchPortal(){
+  try{
+    const {data,error}=await sb.rpc("staff_portal",{p_token:token,p_from:ymd(portalFrom()),p_to:ymd(portalTo())});
+    if(error)throw error;
+    portal=data;portalOk=!!data;store.set("rush-staff-portal:"+token,JSON.stringify(data));
+  }catch(e){
+    // database non ancora aggiornato oppure offline: usa la copia salvata, se c'è
+    const c=JSON.parse(store.get("rush-staff-portal:"+token)||"null");
+    portal=c;portalOk=!!c;
+  }
 }
 let first=true;
 async function load(){
@@ -316,12 +375,22 @@ async function load(){
     if(!c){msg("Impossibile caricare i turni. Controlla la connessione e riprova.");return}
     week=c.w;upcoming=c.u;offline=true;
   }
+  await fetchPortal();
+  if(view!=="turni"&&!portalOk)view="turni";
+  if(view==="disp"&&!isStudent())view="turni";
   render();
 }
 function nextShift(){
   if(!upcoming)return null;const now=new Date();let best=null;
   for(const x of upcoming.shifts){const d=parseYmd(x.day),a=toMin(x.start);const t=new Date(d.getFullYear(),d.getMonth(),d.getDate(),Math.floor(a/60),a%60);const end=new Date(t.getTime()+shiftMinutes(x)*60000);if(end>now&&(!best||t<best.t))best={t,x,d}}
   return best;
+}
+function reqsOn(day){
+  if(!portalOk)return [];const s=ymd(day);
+  return portal.requests.filter(r=>r.status!=="rifiutata"&&String(r.start).slice(0,10)<=s&&String(r.end).slice(0,10)>=s);
+}
+function weekNav(){
+  return '<div class="row"><div class="weeknav"><button class="icon-btn" data-act="prev" aria-label="Settimana precedente">‹</button><h2>Settimana '+isoWeek(monday)+'<span class="sub">'+fmtDay(monday)+' – '+fmtDay(addDays(monday,6))+'</span></h2><button class="icon-btn" data-act="next" aria-label="Settimana successiva">›</button><button class="btn" data-act="today">Oggi</button></div></div>';
 }
 function render(){
   document.getElementById("venue").textContent=week.venue||"";
@@ -330,31 +399,146 @@ function render(){
   const list=week.shifts.map(x=>({...x,date:parseYmd(x.day)}));
   const tot=list.reduce((a,x)=>a+shiftHours(x),0);
   const nx=nextShift();
-  const tIdx=ymd(mondayOf(today))===ymd(monday)?(today.getDay()+6)%7:-1;
   let h='<div class="hello"><div class="sub2">Ciao</div><h2 class="ph">'+esc(week.name)+'</h2></div>';
   h+='<div class="tiles"><div class="tile"><div class="lbl">Prossimo turno</div><div class="val num" style="font-size:24px">'+(nx?DAYS[(nx.d.getDay()+6)%7]+" "+fmtDay(nx.d):"—")+'</div><div class="hint mono">'+(nx?esc(nx.x.start)+"–"+esc(nx.x.end):"Nessun turno in programma")+'</div></div>'+
      '<div class="tile"><div class="lbl">Ore settimana '+isoWeek(monday)+'</div><div class="val num">'+hrs(tot)+'</div><div class="hint">'+list.length+' turni</div></div></div>';
-  h+='<div class="row"><div class="weeknav"><button class="icon-btn" data-act="prev" aria-label="Settimana precedente">‹</button><h2>Settimana '+isoWeek(monday)+'<span class="sub">'+fmtDay(monday)+' – '+fmtDay(addDays(monday,6))+'</span></h2><button class="icon-btn" data-act="next" aria-label="Settimana successiva">›</button><button class="btn" data-act="today">Oggi</button></div></div>';
-  h+='<div class="panel">';
+  if(portalOk){
+    const pend=portal.requests.filter(r=>r.status==="attesa").length;
+    const tabs=[["turni","Turni"],["richieste","Ferie e giorni liberi"+(pend?' <span class="cnt">'+pend+'</span>':"")]];
+    if(isStudent())tabs.push(["disp","Disponibilità"]);
+    h+='<div class="seg" role="tablist" aria-label="Sezioni">'+tabs.map(([k,l])=>'<button role="tab" aria-selected="'+(view===k)+'" class="'+(view===k?"on":"")+'" data-act="view" data-v="'+k+'">'+l+'</button>').join("")+'</div>';
+  }
+  if(view==="richieste")h+=viewRequests();
+  else if(view==="disp")h+=viewDisp();
+  else h+=viewShifts(list);
+  document.getElementById("main").innerHTML=h;
+}
+function viewShifts(list){
+  const tIdx=ymd(mondayOf(today))===ymd(monday)?(today.getDay()+6)%7:-1;
+  let h=weekNav()+'<div class="panel">';
   for(let d=0;d<7;d++){
     const day=addDays(monday,d),ds=list.filter(x=>ymd(x.date)===ymd(day)).sort((a,b)=>toMin(a.start)-toMin(b.start));
+    const rq=reqsOn(day);
+    const tags=rq.map(r=>'<span class="pill '+(r.status==="approvata"?"ok":"warn")+'">'+KINDS[r.kind]+(r.status==="approvata"?"":" · in attesa")+'</span>').join(" ");
     h+='<div class="meday'+(d===tIdx?" today":"")+'"><div class="day"><b>'+DAYS[d]+'</b><span>'+fmtDay(day)+'</span></div><div class="mshifts2">'+
       (ds.length?ds.map(x=>{const a=toMin(x.start),e=a+shiftMinutes(x);
         const w=[...new Set(week.team.filter(y=>y.day===x.day).filter(y=>{const ya=toMin(y.start),ye=ya+shiftMinutes(y);return ya<e&&ye>a}).map(y=>y.name))];
         const t=shiftType(x);
-        return '<div class="chip static t-'+t+'"><span class="mono">'+esc(x.start)+'–'+esc(x.end)+'</span><small>'+SHIFT_TYPES[t]+' · '+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+' min':'')+(x.note?' · '+esc(x.note):'')+'</small>'+(w.length?'<small>Con: '+w.map(esc).join(", ")+'</small>':'')+'</div>'}).join(""):'<span class="off">Riposo</span>')+'</div></div>';
+        return '<div class="chip static t-'+t+'"><span class="mono">'+esc(x.start)+'–'+esc(x.end)+'</span><small>'+SHIFT_TYPES[t]+' · '+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+' min':'')+(x.note?' · '+esc(x.note):'')+'</small>'+(w.length?'<small>Con: '+w.map(esc).join(", ")+'</small>':'')+'</div>'}).join(""):(rq.length?"":'<span class="off">Riposo</span>'))+
+      (tags?'<div class="tags">'+tags+'</div>':"")+'</div></div>';
   }
-  h+='</div>';
-  document.getElementById("main").innerHTML=h;
+  return h+'</div>';
 }
+function viewRequests(){
+  const f=reqForm,min=ymd(today);
+  let h='<div class="panel"><div class="hd"><h3>Nuova richiesta</h3></div><form class="form" id="reqform" autocomplete="off" novalidate>'+
+    '<div class="field"><span class="flabel">Cosa chiedi</span><div class="seg small" role="radiogroup" aria-label="Tipo di richiesta">'+Object.entries(KINDS).map(([k,l])=>'<button type="button" role="radio" aria-checked="'+(f.kind===k)+'" class="'+(f.kind===k?"on":"")+'" data-act="kind" data-v="'+k+'">'+l+'</button>').join("")+'</div></div>'+
+    '<div class="two"><div class="field"><label for="rq-start">'+(f.kind==="ferie"?"Dal":"Giorno")+'</label><input id="rq-start" type="date" min="'+min+'" value="'+esc(f.start)+'" required></div>'+
+    '<div class="field"><label for="rq-end">'+(f.kind==="ferie"?"Al":"Fino al (facoltativo)")+'</label><input id="rq-end" type="date" min="'+esc(f.start||min)+'" value="'+esc(f.end)+'"><span class="help">Lascia vuoto per un solo giorno</span></div></div>'+
+    '<div class="field"><label for="rq-note">Nota (facoltativa)</label><input id="rq-note" type="text" maxlength="200" placeholder="es. matrimonio di mio fratello" value="'+esc(f.note)+'"></div>'+
+    (reqErr?'<div class="err">'+esc(reqErr)+'</div>':"")+(reqMsg?'<div class="okmsg">'+esc(reqMsg)+'</div>':"")+
+    '<div><button class="btn primary" type="submit"'+(sending||offline?" disabled":"")+'>'+(sending?"Invio…":"Invia richiesta")+'</button></div></form></div>';
+  const rs=portal.requests.slice().sort((a,b)=>(a.status==="attesa"?0:1)-(b.status==="attesa"?0:1)||String(b.start).localeCompare(String(a.start)));
+  h+='<div class="panel"><div class="hd"><h3>Le tue richieste</h3></div>'+(rs.length?rs.map(r=>{const st=RSTATUS[r.status]||["",""];const s=String(r.start).slice(0,10),e=String(r.end).slice(0,10);const n=nDays(s,e);
+    return '<div class="req"><div class="req-main"><b>'+KINDS[r.kind]+'</b> <span class="pill '+st[1]+'">'+st[0]+'</span><div class="num">'+fmtRange(s,e)+(n>1?' · '+n+' giorni':'')+'</div>'+
+      (r.note?'<div class="sub2">'+esc(r.note)+'</div>':"")+(r.admin_note?'<div class="sub2"><b>Risposta:</b> '+esc(r.admin_note)+'</div>':"")+
+      '<div class="stale">Chiesta il '+fmtStamp(r.created_at)+'</div></div>'+
+      (r.status==="attesa"&&!offline?'<button class="btn" data-act="cancelreq" data-id="'+esc(r.id)+'">Annulla</button>':"")+'</div>'}).join(""):'<div class="empty">Nessuna richiesta ancora.</div>')+'</div>';
+  return h;
+}
+function weekDisp(mon){
+  const k=ymd(mon);
+  if(!drafts[k]){
+    const slots=Array(7).fill("");
+    for(const a of portal.availability){const d=parseYmd(a.day);const i=Math.round((d-mon)/86400000);if(i>=0&&i<7)slots[i]=a.slot}
+    const w=portal.weeks.find(x=>String(x.week_start).slice(0,10)===k);
+    drafts[k]={slots,note:w?w.note:"",sent:w?w.updated_at:null,dirty:false};
+  }
+  return drafts[k];
+}
+function viewDisp(){
+  const cur=mondayOf(today),last=addDays(cur,7*DISP_WEEKS);
+  let h=weekNav();
+  if(monday<portalFrom()||monday>last)return h+'<div class="panel"><div class="empty">Puoi indicare la disponibilità per le prossime '+DISP_WEEKS+' settimane.</div></div>';
+  const past=monday<cur,dr=weekDisp(monday),ro=past||offline;
+  h+='<div class="panel"><div class="hd"><h3>La mia disponibilità</h3><span class="spacer"></span>'+(dr.sent?'<span class="pill ok">Inviata il '+fmtStamp(dr.sent)+'</span>':'<span class="pill mute">Non ancora inviata</span>')+'</div>';
+  if(!ro)h+='<div class="dayact" style="padding:10px 14px 0"><button class="mini" data-act="dispall" data-v="tutto">Tutta la settimana: tutto il giorno</button><button class="mini" data-act="dispall" data-v="no">Tutta la settimana: no</button><button class="mini" data-act="dispprev">Come la settimana prima</button></div>';
+  for(let d=0;d<7;d++){
+    const day=addDays(monday,d),v=dr.slots[d];
+    h+='<div class="drow"><div class="day"><b>'+DAYS[d]+'</b> <span>'+fmtDay(day)+'</span></div>'+
+      (ro?'<div>'+(v?'<span class="slot s-'+v+'">'+SLOTS[v]+'</span>':'<span class="off">Non indicata</span>')+'</div>':
+      '<div class="slots" role="radiogroup" aria-label="Disponibilità '+DAYS[d]+'">'+Object.keys(SLOTS).map(s=>'<button type="button" role="radio" aria-checked="'+(v===s)+'" class="'+(v===s?"on s-"+s:"")+'" data-act="slot" data-d="'+d+'" data-v="'+s+'">'+SLOT_BTN[s]+'</button>').join("")+'</div>')+'</div>';
+  }
+  h+='<div class="form" style="max-width:none"><div class="field"><label for="dp-note">Nota per il responsabile</label><input id="dp-note" type="text" maxlength="200" placeholder="es. giovedì ho un esame fino alle 14" value="'+esc(dr.note)+'"'+(ro?" disabled":"")+'></div>'+
+    (dispErr?'<div class="err">'+esc(dispErr)+'</div>':"")+(dispMsg?'<div class="okmsg">'+esc(dispMsg)+'</div>':"")+
+    (ro?(past?'<div class="sub2">Questa settimana è passata.</div>':'<div class="sub2">Sei offline: riprova quando hai connessione.</div>'):'<div class="row"><button class="btn primary" data-act="savedisp"'+(saving?" disabled":"")+'>'+(saving?"Invio…":(dr.sent?"Aggiorna disponibilità":"Invia disponibilità"))+'</button>'+(dr.dirty?'<span class="sub2">Modifiche non ancora inviate</span>':"")+'</div>')+
+  '</div></div>';
+  return h;
+}
+async function sendRequest(){
+  const f=reqForm;reqErr="";reqMsg="";
+  if(!f.start){reqErr="Scegli la data.";render();return}
+  if(f.start<ymd(today)){reqErr="La data è già passata.";render();return}
+  const end=f.end||f.start;
+  if(end<f.start){reqErr="La data di fine è prima di quella di inizio.";render();return}
+  if(nDays(f.start,end)>61){reqErr="Al massimo 61 giorni per richiesta.";render();return}
+  sending=true;render();
+  try{
+    const {error}=await sb.rpc("staff_request_create",{p_token:token,p_kind:f.kind,p_start:f.start,p_end:end,p_note:f.note.trim()});
+    if(error)throw error;
+    reqForm={kind:f.kind,start:"",end:"",note:""};reqMsg="Richiesta inviata: riceverai la risposta qui.";
+    await fetchPortal();
+  }catch(e){reqErr=errText(e)}
+  sending=false;render();
+}
+async function cancelRequest(id){
+  if(!confirm("Annullare questa richiesta?"))return;
+  try{const {error}=await sb.rpc("staff_request_cancel",{p_token:token,p_id:id});if(error)throw error;reqMsg="Richiesta annullata.";reqErr=""}
+  catch(e){reqErr=errText(e);reqMsg=""}
+  await fetchPortal();render();
+}
+async function saveDisp(){
+  const k=ymd(monday),dr=weekDisp(monday);dispErr="";dispMsg="";
+  const n=document.getElementById("dp-note");if(n)dr.note=n.value;
+  if(!dr.slots.some(Boolean)){dispErr="Indica almeno un giorno.";render();return}
+  saving=true;render();
+  try{
+    const {error}=await sb.rpc("staff_availability_set",{p_token:token,p_week_start:k,p_slots:dr.slots,p_note:(dr.note||"").trim()});
+    if(error)throw error;
+    await fetchPortal();delete drafts[k];dispMsg="Disponibilità inviata.";
+  }catch(e){dispErr=errText(e)}
+  saving=false;render();
+}
+function anyDirty(){return Object.values(drafts).some(d=>d.dirty)}
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-act]");if(!t)return;
-  if(t.dataset.act==="prev")monday=addDays(monday,-7);
-  else if(t.dataset.act==="next")monday=addDays(monday,7);
-  else if(t.dataset.act==="today")monday=mondayOf(new Date());
-  msg("Caricamento…");load();
+  const act=t.dataset.act;
+  if(act==="prev"||act==="next"||act==="today"){
+    if(view==="disp"&&anyDirty()&&!confirm("Hai modifiche non inviate. Cambiare settimana comunque?"))return;
+    if(act==="prev")monday=addDays(monday,-7);else if(act==="next")monday=addDays(monday,7);else monday=mondayOf(new Date());
+    drafts={};dispMsg="";dispErr="";msg("Caricamento…");load();return;
+  }
+  if(act==="view"){view=t.dataset.v;reqMsg="";reqErr="";dispMsg="";dispErr="";render();return}
+  if(act==="kind"){reqForm.kind=t.dataset.v;render();return}
+  if(act==="cancelreq"){cancelRequest(t.dataset.id);return}
+  if(act==="slot"){const dr=weekDisp(monday),d=+t.dataset.d;const n=document.getElementById("dp-note");if(n)dr.note=n.value;dr.slots[d]=dr.slots[d]===t.dataset.v?"":t.dataset.v;dr.dirty=true;dispMsg="";render();return}
+  if(act==="dispall"){const dr=weekDisp(monday);const n=document.getElementById("dp-note");if(n)dr.note=n.value;dr.slots=Array(7).fill(t.dataset.v);dr.dirty=true;dispMsg="";render();return}
+  if(act==="dispprev"){const dr=weekDisp(monday),pv=weekDisp(addDays(monday,-7));const n=document.getElementById("dp-note");if(n)dr.note=n.value;
+    if(!pv.slots.some(Boolean)){dispErr="La settimana prima non hai indicato la disponibilità.";dispMsg="";render();return}
+    dr.slots=pv.slots.slice();dr.dirty=true;dispErr="";dispMsg="";render();return}
+  if(act==="savedisp"){saveDisp();return}
 });
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&sb&&token)load()});
+function onField(e){
+  const t=e.target;
+  if(t.id==="rq-start"){reqForm.start=t.value;const en=document.getElementById("rq-end");if(en){en.min=t.value||ymd(today);if(reqForm.end&&reqForm.end<t.value){reqForm.end="";en.value=""}}}
+  else if(t.id==="rq-end")reqForm.end=t.value;
+  else if(t.id==="rq-note")reqForm.note=t.value;
+  else if(t.id==="dp-note"){const dr=weekDisp(monday);if(dr.note!==t.value){dr.note=t.value;dr.dirty=true}}
+}
+document.addEventListener("input",onField);
+document.addEventListener("change",onField);
+document.addEventListener("submit",e=>{if(e.target.id==="reqform"){e.preventDefault();if(!sending)sendRequest()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&sb&&token&&!sending&&!saving&&!anyDirty())load()});
 window.addEventListener("hashchange",()=>location.reload());
 (function(){
   const C=window.RUSH_CONFIG||{};

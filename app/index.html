@@ -221,7 +221,28 @@ body.hasclip .toast{bottom:84px}
 .mshifts .chip{width:auto;margin:0;padding:7px 10px;font-size:14px}
 .mshifts .add{width:auto;padding:7px 12px;font-size:14px}
 .off{color:var(--muted);font-size:14px}
+.cnt{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--oil);color:var(--ink);font-size:11px;font-weight:800;margin-left:5px;vertical-align:1px}
+.cbadges{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px}
+.cbadge{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:999px;border:1px solid;white-space:nowrap;line-height:1.5}
+.cbadge.off-ok{background:var(--sala-soft);border-color:var(--sala);color:#3f5868}
+.cbadge.off-wait{background:var(--warn-soft);border-color:var(--oil);color:var(--warn)}
+.cbadge.av-tutto{background:var(--t-pranzo-soft);border-color:var(--basil);color:var(--basil)}
+.cbadge.av-pranzo{background:#fff7e3;border-color:var(--oil);color:var(--warn)}
+.cbadge.av-cena{background:var(--t-cena-soft);border-color:var(--t-cena);color:var(--t-cena)}
+.cbadge.av-no{background:var(--crit-soft);border-color:var(--crit);color:var(--crit)}
+td.cell.offday{background:repeating-linear-gradient(135deg,var(--surface) 0 8px,var(--sala-soft) 8px 16px)}
+.mrow.offday{background:var(--sala-soft)}
+.rq{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--line)}
+.rq:last-child{border-bottom:0}
+.rq-main{display:grid;gap:3px;min-width:0}
+.rq-main .who{font-weight:800;font-size:16px}
+.rq-warn{font-size:13px;color:var(--warn);font-weight:600}
+.avt td.av{text-align:center;white-space:nowrap}
+#sh-warn:empty{display:none}
+#sh-warn{background:var(--warn-soft);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--ink);display:grid;gap:2px}
 @media (max-width:699px){
+  .rq{grid-template-columns:1fr}
+
   .tiles{grid-template-columns:1fr 1fr;gap:8px}
   .tile{padding:10px 12px}
   .tile .val{font-size:26px}
@@ -256,6 +277,7 @@ body.hasclip .toast{bottom:84px}
     </div>
     <nav class="tabs" id="tabs" aria-label="Sezioni">
       <a href="#planning">Planning</a>
+      <a href="#richieste">Richieste</a>
       <a href="#ore">Ore e budget</a>
       <a href="#fissi">Fissi</a>
       <a href="#studenti">Studenti</a>
@@ -279,6 +301,10 @@ const ROLES={sala:"Sala",cucina:"Cucina",bar:"Bar"};
 const STATUSES={fisso:"Fisso",studente:"Studente",indipendente:"Indipendente"};
 const MONTHS_LONG=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
 const PRESETS=[["Pranzo","11:00","15:00",0],["Pomeriggio","15:00","18:00",0],["Cena","18:00","23:30",0]];
+const KINDS={ferie:"Ferie",libero:"Giorno libero"};
+const RSTATUS={attesa:["In attesa","warn"],approvata:["Approvata","ok"],rifiutata:["Rifiutata","crit"]};
+const SLOTS={tutto:"Tutto il giorno",pranzo:"Solo pranzo",cena:"Solo cena",no:"Non disponibile"};
+const SLOT_SHORT={tutto:"Tutto",pranzo:"Pranzo",cena:"Cena",no:"No"};
 const DEFAULT_SETTINGS={budget:4500,studentLimit:650,maxDay:10,maxWeek:38,minRest:11,defaultPause:0};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
@@ -306,6 +332,7 @@ let readOnly=false;
 let sb=null, session=null, orgId=null, starting=false, lastLoad=0, authMsg="", recovery=false;
 let srvShifts={}, srvStaff={}, srvOrg="";
 let dayIdx=null;
+let reqs=[], avail={}, availWeeks={}, reqReady=false;   // richieste ferie/giorni liberi e disponibilità studenti
 const isMobile=()=>window.innerWidth<700;
 const today=new Date();
 let curMonday=mondayOf(today);
@@ -403,11 +430,52 @@ async function loadAll(){
     const x={id:r.id,staffId:r.staff_id,day:(d.getDay()+6)%7,start:r.start_time,end:r.end_time,pause:+r.pause||0,note:r.note||""};
     (weeks[k]=weeks[k]||[]).push(x);srvShifts[r.id]=JSON.stringify(shiftRow(k,x));
   }
+  await loadExtra();
   lastLoad=Date.now();
+}
+async function loadExtra(){
+  // tabelle aggiunte con supabase/aggiornamento-richieste.sql: se mancano, il resto dell'app funziona lo stesso
+  try{
+    const now=new Date();
+    const [r,a,w]=await Promise.all([
+      fetchAll(()=>sb.from("time_off").select("id,staff_id,kind,start_day,end_day,note,status,admin_note,created_at,decided_at").eq("org_id",orgId).gte("end_day",ymd(addDays(now,-400))).order("start_day").order("id")),
+      fetchAll(()=>sb.from("availability").select("staff_id,day,slot").eq("org_id",orgId).gte("day",ymd(addDays(now,-120))).order("day").order("staff_id")),
+      fetchAll(()=>sb.from("availability_weeks").select("staff_id,week_start,note,updated_at").eq("org_id",orgId).gte("week_start",ymd(addDays(now,-126))).order("week_start").order("staff_id"))
+    ]);
+    reqs=r.map(x=>({id:x.id,staffId:x.staff_id,kind:x.kind,start:String(x.start_day).slice(0,10),end:String(x.end_day).slice(0,10),note:x.note||"",status:x.status,adminNote:x.admin_note||"",createdAt:x.created_at,decidedAt:x.decided_at}));
+    avail={};for(const x of a)(avail[x.staff_id]=avail[x.staff_id]||{})[String(x.day).slice(0,10)]=x.slot;
+    availWeeks={};for(const x of w)(availWeeks[x.staff_id]=availWeeks[x.staff_id]||{})[String(x.week_start).slice(0,10)]={note:x.note||"",at:x.updated_at};
+    reqReady=true;
+  }catch(e){console.warn("Richieste non disponibili",e);reqs=[];avail={};availWeeks={};reqReady=false}
 }
 function setStatus(kind,text){
   const el=document.getElementById("status");
   el.innerHTML=text?'<span class="dot '+kind+'"></span><span>'+esc(text)+'</span>':'';
+}
+
+/* ---------- richieste e disponibilità ---------- */
+const offOn=(staffId,ds)=>reqs.filter(r=>r.staffId===staffId&&r.status!=="rifiutata"&&r.start<=ds&&r.end>=ds).sort((a,b)=>(a.status==="approvata"?0:1)-(b.status==="approvata"?0:1));
+const availOn=(staffId,ds)=>(avail[staffId]||{})[ds]||"";
+function slotFits(slot,x){if(!slot||slot==="tutto")return true;if(slot==="no")return false;return shiftType(x)===slot}
+const pendingCount=()=>reqs.filter(r=>r.status==="attesa"&&staffById(r.staffId)).length;
+const dayCount=(a,b)=>Math.round((parseYmd(b)-parseYmd(a))/86400000)+1;
+const fmtDayW=d=>DAYS[(d.getDay()+6)%7]+" "+fmtDay(d);
+function fmtRange(a,b){return a===b?fmtDayW(parseYmd(a)):fmtDayW(parseYmd(a))+" – "+fmtDayW(parseYmd(b))}
+function fmtStamp(v){const d=new Date(v);if(!v||isNaN(d))return "";return fmtDay(d)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+// stato di una persona in un giorno della settimana mostrata: assenze, disponibilità e conflitti con i turni
+function dayInfo(p,d,list){
+  const ds=ymd(addDays(curMonday,d)),offs=offOn(p.id,ds),slot=p.status==="studente"?availOn(p.id,ds):"";
+  let cls="",badges="";const warns=[];
+  for(const r of offs){
+    badges+='<span class="cbadge '+(r.status==="approvata"?"off-ok":"off-wait")+'" title="'+esc(KINDS[r.kind]+(r.status==="approvata"?" approvate":" richieste, in attesa")+(r.note?": "+r.note:""))+'">'+KINDS[r.kind]+(r.status==="approvata"?"":" ?")+'</span>';
+    if(list.length){if(r.status==="approvata"){cls="crit";warns.push(p.name+" è in "+(r.kind==="ferie"?"ferie":"giorno libero")+" (approvato)")}else{if(cls!=="crit")cls="warn";warns.push(p.name+" ha chiesto "+(r.kind==="ferie"?"ferie":"un giorno libero")+" (in attesa)")}}
+  }
+  if(slot){
+    badges+='<span class="cbadge av-'+slot+'" title="Disponibilità: '+SLOTS[slot]+'">'+(slot==="no"?"Non disp.":"Disp. "+SLOT_SHORT[slot].toLowerCase())+'</span>';
+    if(list.some(x=>!slotFits(slot,x))){if(cls!=="crit")cls="warn";warns.push(slot==="no"?p.name+" ha detto di non essere disponibile":p.name+" è disponibile solo a "+(slot==="pranzo"?"pranzo":"cena"))}
+  }
+  if(!cls&&!list.length&&offs.some(r=>r.status==="approvata"))cls="offday";
+  return {cls,badges:badges?'<div class="cbadges">'+badges+'</div>':"",warns};
 }
 
 /* ---------- calcoli ---------- */
@@ -460,10 +528,11 @@ function studentHours(p,year){
 }
 
 /* ---------- rendering ---------- */
-const route=()=>{const h=(location.hash||"").slice(1);return ["planning","ore","fissi","studenti","indipendenti","link","impostazioni"].includes(h)?h:"planning"};
+const route=()=>{const h=(location.hash||"").slice(1);return ["planning","richieste","ore","fissi","studenti","indipendenti","link","impostazioni"].includes(h)?h:"planning"};
 function render(){
   document.getElementById("venue").textContent=cfg.venue||"";
   document.querySelectorAll("#tabs a").forEach(a=>a.getAttribute("href")==="#"+route()?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));
+  const ra=document.querySelector('#tabs a[href="#richieste"]');if(ra){const n=mode==="db"?pendingCount():0;ra.innerHTML="Richieste"+(n?'<span class="cnt" aria-label="'+n+' da approvare">'+n+'</span>':"")}
   const main=document.getElementById("main");
   let html="";
   document.body.classList.toggle("nologin",mode!=="db");
@@ -471,7 +540,7 @@ function render(){
   if(mode==="login"){main.innerHTML=viewLogin();return}
   if(mode!=="db"){main.innerHTML='<div class="panel"><div class="empty">Caricamento del planning…</div></div>';return}
   const r=route();
-  html+=r==="link"?viewLinks():r==="planning"?viewPlanning():r==="ore"?viewOre():r==="fissi"?viewFissi():r==="studenti"?viewStudenti():r==="indipendenti"?viewIndipendenti():viewSettings();
+  html+=r==="link"?viewLinks():r==="planning"?viewPlanning():r==="richieste"?viewRichieste():r==="ore"?viewOre():r==="fissi"?viewFissi():r==="studenti"?viewStudenti():r==="indipendenti"?viewIndipendenti():viewSettings();
   main.innerHTML=html;
   renderClipbar();
 }
@@ -505,9 +574,9 @@ function viewPlanning(){
       const q=st.per[p.id]||{h:0,c:0};
       h+='<tr><td class="name"><div class="person"><b><span class="roledot" style="background:var(--'+role+')"></span>'+esc(p.name)+'<span class="tag">'+(STATUSES[p.status]||p.status)+'</span></b></div></td>';
       for(let d=0;d<7;d++){
-        const fl="";
         const list=(weeks[k]||[]).filter(x=>x.staffId===p.id&&x.day===d).sort((a,b)=>toMin(a.start)-toMin(b.start));
-        h+='<td class="cell '+fl+'" data-staff="'+p.id+'" data-day="'+d+'">'+list.map(x=>'<div class="chip t-'+shiftType(x)+' num" role="button" tabindex="0" data-act="edit" data-id="'+x.id+'"'+(readOnly?'':' draggable="true"')+' title="Clic per modificare · trascina per copiare (Maiusc per spostare)">'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></div>').join("")+
+        const di=dayInfo(p,d,list),fl=di.cls;
+        h+='<td class="cell '+fl+'" data-staff="'+p.id+'" data-day="'+d+'"'+(di.warns.length?' title="'+esc(di.warns.join(" · "))+'"':'')+'>'+di.badges+list.map(x=>'<div class="chip t-'+shiftType(x)+' num" role="button" tabindex="0" data-act="edit" data-id="'+x.id+'"'+(readOnly?'':' draggable="true"')+' title="Clic per modificare · trascina per copiare (Maiusc per spostare)">'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></div>').join("")+
           cellButtons(p,d,false)+'</td>';
       }
       h+='<td class="tot"><b class="num">'+hrs(q.h)+'</b>'+(overTag(p,q.h)?'<div>'+overTag(p,q.h)+'</div>':'')+'<small class="num">'+eur(q.c)+'</small></td></tr>';
@@ -577,10 +646,11 @@ function viewPlanningMobile(k,st,s){
     const ppl=cfg.staff.filter(p=>p.role===role);if(!ppl.length)continue;
     h+='<div class="mgroup g-'+role+'">'+ROLES[role]+'</div>';
     for(const p of ppl){
-      const q=st.per[p.id]||{h:0,c:0};const fl="";
+      const q=st.per[p.id]||{h:0,c:0};
       const list=(weeks[k]||[]).filter(x=>x.staffId===p.id&&x.day===d).sort((a,b)=>toMin(a.start)-toMin(b.start));
-      h+='<div class="mrow '+fl+'"><div class="person"><b><span class="roledot" style="background:var(--'+role+')"></span>'+esc(p.name)+'<span class="tag">'+(STATUSES[p.status]||p.status)+'</span></b><span class="meta num">Settimana: '+hrs(q.h)+overTag(p,q.h)+' · '+eur(q.c)+'</span></div><div class="mshifts">'+
-        (list.length?list.map(x=>'<button class="chip t-'+shiftType(x)+' num" data-act="edit" data-id="'+x.id+'"'+(readOnly?" disabled":"")+'>'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></button>').join(""):'<span class="off">Riposo</span>')+
+      const di=dayInfo(p,d,list),fl=di.cls;
+      h+='<div class="mrow '+fl+'"><div class="person"><b><span class="roledot" style="background:var(--'+role+')"></span>'+esc(p.name)+'<span class="tag">'+(STATUSES[p.status]||p.status)+'</span></b><span class="meta num">Settimana: '+hrs(q.h)+overTag(p,q.h)+' · '+eur(q.c)+'</span>'+di.badges+(di.warns.length?'<span class="rq-warn">'+esc(di.warns.join(" · "))+'</span>':'')+'</div><div class="mshifts">'+
+        (list.length?list.map(x=>'<button class="chip t-'+shiftType(x)+' num" data-act="edit" data-id="'+x.id+'"'+(readOnly?" disabled":"")+'>'+esc(x.start)+'–'+esc(x.end)+'<small>'+hrs(shiftHours(x))+(x.pause?' · pausa '+x.pause+'′':'')+(x.note?' · '+esc(x.note):'')+'</small></button>').join(""):(fl==="offday"?'':'<span class="off">Riposo</span>'))+
         cellButtons(p,d,true)+'</div></div>';
     }
   }
@@ -617,7 +687,7 @@ function viewStudenti(){
   let h=rosterHead("Studenti","studente","Aggiungi studente");
   if(!ppl.length)return h+'<div class="panel"><div class="empty">Nessuno studente nel team.</div></div>';
   h+='<div class="panel"><div class="cards">'+ppl.map(p=>{const u=studentHours(p,y),pct=u/s.studentLimit,c=pct>1?"crit":pct>=0.9?"warn":"";const q=wk.per[p.id]||{h:0};
-    return '<div class="card"><h4><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</h4><div class="num"><b>'+hrs(u)+'</b> su '+s.studentLimit+' h · restano <b>'+hrs(Math.max(0,s.studentLimit-u))+'</b></div><div class="bar '+c+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div><div class="sub2" style="font-size:12px">'+ROLES[p.role]+' · '+eur(p.rate)+'/h · settimana '+(+k.slice(6))+': '+hrs(q.h)+(+p.prior?' · incluse '+hrs(p.prior)+' altrove':'')+'</div><div>'+editBtn(p)+'</div></div>'}).join("")+
+    return '<div class="card"><h4><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</h4><div class="num"><b>'+hrs(u)+'</b> su '+s.studentLimit+' h · restano <b>'+hrs(Math.max(0,s.studentLimit-u))+'</b></div><div class="bar '+c+'"><i style="width:'+Math.min(100,pct*100)+'%"></i></div><div class="sub2" style="font-size:12px">'+ROLES[p.role]+' · '+eur(p.rate)+'/h · settimana '+(+k.slice(6))+': '+hrs(q.h)+(+p.prior?' · incluse '+hrs(p.prior)+' altrove':'')+'</div>'+(reqReady?'<div class="sub2" style="font-size:12px">'+((availWeeks[p.id]||{})[ymd(curMonday)]?'Disponibilità settimana '+(+k.slice(6))+' inviata · <a href="#richieste">vedi</a>':'Disponibilità settimana '+(+k.slice(6))+' non inviata')+'</div>':'')+'<div>'+editBtn(p)+'</div></div>'}).join("")+
   '</div></div>';
   return h;
 }
@@ -664,6 +734,87 @@ function viewOre(){
     Object.keys(STATUSES).filter(x=>by[x]).map(x=>'<tr><td>'+STATUSES[x]+'</td><td class="r num">'+by[x].n+'</td><td class="r num">'+hrs(by[x].h)+'</td><td class="r num">'+eur(by[x].c)+'</td><td class="r num">'+(st.totC?Math.round(by[x].c/st.totC*100):0)+'%</td></tr>').join("")+
   '</tbody></table></div>';
   return h;
+}
+function shiftsInRange(staffId,a,b){
+  let n=0;
+  for(const k in weeks){const mo=mondayFromKey(k);if(!mo)continue;
+    for(const x of weeks[k]){if(x.staffId!==staffId)continue;const ds=ymd(addDays(mo,x.day));if(ds>=a&&ds<=b)n++}}
+  return n;
+}
+function reqRow(r,pending){
+  const p=staffById(r.staffId),st=RSTATUS[r.status]||["",""],n=dayCount(r.start,r.end);
+  const sh=shiftsInRange(r.staffId,r.start,r.end);
+  const others=reqs.filter(o=>o.id!==r.id&&o.status==="approvata"&&staffById(o.staffId)&&o.start<=r.end&&o.end>=r.start).map(o=>staffById(o.staffId).name);
+  const btn=readOnly?"":(pending?'<button class="btn primary" data-act="rq-ok" data-id="'+r.id+'">Approva</button><button class="btn" data-act="rq-no" data-id="'+r.id+'">Rifiuta</button>':
+    (r.status==="approvata"?'<button class="btn" data-act="rq-no" data-id="'+r.id+'">Rifiuta</button>':'<button class="btn" data-act="rq-ok" data-id="'+r.id+'">Approva</button>')+'<button class="btn danger" data-act="rq-del" data-id="'+r.id+'">Elimina</button>');
+  return '<div class="rq"><div class="rq-main"><div><span class="who"><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</span> · <b>'+KINDS[r.kind]+'</b> '+(pending?"":'<span class="pill '+st[1]+'">'+st[0]+'</span>')+'</div>'+
+    '<div class="num">'+fmtRange(r.start,r.end)+(n>1?' · '+n+' giorni':'')+'</div>'+
+    (r.note?'<div class="sub2">«'+esc(r.note)+'»</div>':'')+(r.adminNote?'<div class="sub2"><b>Tua risposta:</b> '+esc(r.adminNote)+'</div>':'')+
+    (sh&&r.status!=="rifiutata"?'<div class="rq-warn">Ha già '+sh+(sh===1?" turno":" turni")+' in questi giorni</div>':'')+
+    (others.length&&pending?'<div class="rq-warn">Nello stesso periodo sono assenti: '+others.map(esc).join(", ")+'</div>':'')+
+    '<div class="stale" style="font-size:12px;color:var(--muted)">'+(r.createdAt?'Chiesta il '+fmtStamp(r.createdAt):'')+(r.decidedAt&&!pending?' · decisa il '+fmtStamp(r.decidedAt):'')+'</div></div>'+
+    '<div class="actions">'+btn+'</div></div>';
+}
+function viewRichieste(){
+  let h='<div class="row"><h2 class="ph">Richieste</h2><span class="spacer"></span>'+(readOnly||!reqReady?'':'<button class="btn primary" data-act="rq-new">Aggiungi assenza</button>')+'</div>';
+  if(!reqReady)return h+'<div class="panel"><div class="empty">Per usare ferie, giorni liberi e disponibilità serve un aggiornamento del database:<br>esegui una volta il file <b>supabase/aggiornamento-richieste.sql</b> in Supabase → SQL Editor → Run, poi ricarica questa pagina.</div></div>';
+  const mine=reqs.filter(r=>staffById(r.staffId));
+  const pend=mine.filter(r=>r.status==="attesa").sort((a,b)=>a.start.localeCompare(b.start));
+  h+='<div class="panel"><div class="hd"><h3>Da approvare</h3>'+(pend.length?'<span class="cnt">'+pend.length+'</span>':'')+'</div>'+(pend.length?pend.map(r=>reqRow(r,true)).join(""):'<div class="empty">Nessuna richiesta in attesa.</div>')+'</div>';
+  // disponibilità studenti della settimana mostrata
+  const studs=cfg.staff.filter(p=>p.status==="studente"),mk=ymd(curMonday);
+  h+='<div class="row">'+weekHeader()+'</div>';
+  h+='<div class="panel gridwrap"><div class="hd"><h3>Disponibilità studenti</h3></div>'+(studs.length?'<table class="list avt"><thead><tr><th>Nome</th>'+DAYS.map((d,i)=>'<th class="r" style="text-align:center">'+d+' '+addDays(curMonday,i).getDate()+'</th>').join("")+'<th>Nota</th></tr></thead><tbody>'+
+    studs.map(p=>{const w=(availWeeks[p.id]||{})[mk];
+      return '<tr><td><b>'+esc(p.name)+'</b><div class="sub2" style="font-size:12px">'+(w?'Inviata il '+fmtStamp(w.at):'<span class="pill mute">Non inviata</span>')+'</div></td>'+
+        DAYS.map((_,i)=>{const sl=availOn(p.id,ymd(addDays(curMonday,i)));return '<td class="av">'+(sl?'<span class="cbadge av-'+sl+'">'+SLOT_SHORT[sl]+'</span>':'<span class="sub2">—</span>')+'</td>'}).join("")+
+        '<td style="white-space:normal;min-width:160px">'+(w&&w.note?esc(w.note):'')+'</td></tr>'}).join("")+'</tbody></table>':'<div class="empty">Nessuno studente nel team.</div>')+'</div>';
+  // storico
+  const lim=ymd(addDays(new Date(),-60));
+  const done=mine.filter(r=>r.status!=="attesa"&&r.end>=lim).sort((a,b)=>a.start.localeCompare(b.start));
+  h+='<div class="panel"><div class="hd"><h3>Assenze approvate e rifiutate</h3><span class="sub2">dagli ultimi 60 giorni</span></div>'+(done.length?done.map(r=>reqRow(r,false)).join(""):'<div class="empty">Ancora niente qui.</div>')+'</div>';
+  return h;
+}
+function rejectModal(id){
+  const r=reqs.find(x=>x.id===id),p=r&&staffById(r.staffId);if(!r||!p)return;
+  openModal("Rifiuta richiesta",'<p style="margin:0">'+esc(p.name)+' · '+KINDS[r.kind]+' · '+fmtRange(r.start,r.end)+'</p><div class="field"><label for="rq-reason">Motivo (facoltativo, lo vede '+esc(p.name)+')</label><input id="rq-reason" type="text" maxlength="200" value="'+esc(r.status==="rifiutata"?r.adminNote:"")+'" placeholder="es. siamo già in pochi quel weekend"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="rq-no-do" data-id="'+id+'">Rifiuta</button>');
+}
+function absenceModal(){
+  const opts=cfg.staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join("");
+  const t=ymd(new Date());
+  openModal("Aggiungi assenza",'<div class="two"><div class="field"><label for="ab-staff">Dipendente</label><select id="ab-staff">'+opts+'</select></div><div class="field"><label for="ab-kind">Tipo</label><select id="ab-kind">'+Object.entries(KINDS).map(([k,l])=>'<option value="'+k+'">'+l+'</option>').join("")+'</select></div></div>'+
+    '<div class="two"><div class="field"><label for="ab-start">Dal</label><input id="ab-start" type="date" value="'+t+'"></div><div class="field"><label for="ab-end">Al</label><input id="ab-end" type="date" value="'+t+'"></div></div>'+
+    '<div class="field"><label for="ab-note">Nota</label><input id="ab-note" type="text" maxlength="200"></div><p class="help" style="margin:0;font-size:12px;color:var(--muted)">L\'assenza viene salvata già approvata.</p><div class="err" id="ab-err"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="rq-add">Aggiungi</button>');
+}
+async function decide(id,status,note){
+  const r=reqs.find(x=>x.id===id);if(!r)return;
+  const upd={status,admin_note:(note==null?r.adminNote:note).slice(0,200),decided_at:new Date().toISOString()};
+  setStatus("warn","Salvataggio…");
+  const {error}=await sb.from("time_off").update(upd).eq("id",id);
+  if(error){console.error(error);setStatus("crit","Salvataggio non riuscito");toast("Non riuscito, riprova");return}
+  Object.assign(r,{status,adminNote:upd.admin_note,decidedAt:upd.decided_at});setStatus("ok","Tutto salvato");
+  render();toast(status==="approvata"?"Richiesta approvata":"Richiesta rifiutata");
+}
+async function addAbsence(){
+  const g=id=>document.getElementById(id).value;
+  const row={org_id:orgId,staff_id:g("ab-staff"),kind:g("ab-kind"),start_day:g("ab-start"),end_day:g("ab-end")||g("ab-start"),note:g("ab-note").trim().slice(0,200),status:"approvata",decided_at:new Date().toISOString()};
+  const err=t=>{document.getElementById("ab-err").textContent=t};
+  if(!row.staff_id){err("Scegli il dipendente.");return}
+  if(!row.start_day){err("Scegli la data di inizio.");return}
+  if(row.end_day<row.start_day){err("La data di fine è prima di quella di inizio.");return}
+  if(dayCount(row.start_day,row.end_day)>61){err("Al massimo 61 giorni per volta.");return}
+  await idle("cfg");
+  const {data,error}=await sb.from("time_off").insert(row).select("id,created_at").single();
+  if(error){console.error(error);err("Salvataggio non riuscito, riprova.");return}
+  reqs.push({id:data.id,staffId:row.staff_id,kind:row.kind,start:row.start_day,end:row.end_day,note:row.note,status:"approvata",adminNote:"",createdAt:data.created_at,decidedAt:row.decided_at});
+  closeModal();render();toast("Assenza aggiunta");
+}
+async function deleteReq(id){
+  const {error}=await sb.from("time_off").delete().eq("id",id);
+  if(error){console.error(error);toast("Non riuscito, riprova");return}
+  reqs=reqs.filter(x=>x.id!==id);render();toast("Richiesta eliminata");
 }
 const staffLink=p=>new URL("staff.html#"+p.token,location.href).href;
 function viewLinks(){
@@ -735,10 +886,11 @@ function shiftModal(shift,staffId,day){
     '<div class="three"><div class="field"><label for="sh-start">Inizio</label><input id="sh-start" type="time" value="'+esc(x.start)+'"></div><div class="field"><label for="sh-end">Fine</label><input id="sh-end" type="time" value="'+esc(x.end)+'"></div><div class="field"><label for="sh-pause">Pausa (min)</label><input id="sh-pause" type="number" min="0" step="5" value="'+(+x.pause||0)+'"></div></div>'+
     '<div class="presets" aria-label="Pausa rapida"><span class="sub2" style="align-self:center">Pausa:</span>'+[0,15,30,60].map(v=>'<button class="btn" data-act="pz" data-v="'+v+'">'+(v?v+" min":"Nessuna")+'</button>').join("")+'</div>'+
     '<div class="field"><label for="sh-note">Nota</label><input id="sh-note" type="text" maxlength="40" placeholder="es. apertura, eventi, terrazza" value="'+esc(x.note||"")+'"></div>'+
-    '<div class="help" id="sh-sum" style="font-size:13px;color:var(--muted)"></div><div class="err" id="sh-err"></div>';
+    '<div class="help" id="sh-sum" style="font-size:13px;color:var(--muted)"></div><div id="sh-warn" role="status"></div><div class="err" id="sh-err"></div>';
   const foot=(isNew?"":'<button class="btn danger" data-act="sh-del" data-id="'+x.id+'">Elimina</button><button class="btn" data-act="sh-copy" data-id="'+x.id+'">Copia</button>')+'<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="sh-save" data-id="'+(x.id||"")+'">'+(isNew?"Aggiungi turno":"Salva")+'</button>';
   openModal(isNew?"Nuovo turno":"Modifica turno",body,foot,l=>{
-    const upd=()=>{const t={start:l.querySelector("#sh-start").value,end:l.querySelector("#sh-end").value,pause:+l.querySelector("#sh-pause").value||0};const p=staffById(l.querySelector("#sh-staff").value);const h=shiftHours(t);l.querySelector("#sh-sum").textContent=t.start&&t.end?hrs(h)+(p?" · "+eur(shiftCost(t,p))+(isIndip(p)?" (1 servizio)":""):"")+(toMin(t.end)<=toMin(t.start)?" · finisce dopo mezzanotte":""):"";};
+    const upd=()=>{if(!l.querySelector("#sh-start"))return;const t={start:l.querySelector("#sh-start").value,end:l.querySelector("#sh-end").value,pause:+l.querySelector("#sh-pause").value||0};const p=staffById(l.querySelector("#sh-staff").value);const h=shiftHours(t);l.querySelector("#sh-sum").textContent=t.start&&t.end?hrs(h)+(p?" · "+eur(shiftCost(t,p))+(isIndip(p)?" (1 servizio)":""):"")+(toMin(t.end)<=toMin(t.start)?" · finisce dopo mezzanotte":""):"";
+      const wv=l.querySelector("#sh-warn");if(wv){const ws=p&&t.start&&t.end?dayInfo(p,+l.querySelector("#sh-day").value,[t]).warns:[];wv.innerHTML=ws.map(w=>"<span><b>Attenzione:</b> "+esc(w)+"</span>").join("")}};
     l.addEventListener("input",upd);l.addEventListener("change",upd);upd();
   });
 }
@@ -831,6 +983,13 @@ document.addEventListener("click",e=>{
     doCopyPrev();return;
   }
   if(act==="do-copyprev"){doCopyPrev();closeModal();return}
+  if(act==="rq-ok"){decide(t.dataset.id,"approvata","");return}
+  if(act==="rq-no"){rejectModal(t.dataset.id);return}
+  if(act==="rq-no-do"){const v=(document.getElementById("rq-reason")||{}).value||"";closeModal();decide(t.dataset.id,"rifiutata",v.trim());return}
+  if(act==="rq-del"){const r=reqs.find(x=>x.id===t.dataset.id),p=r&&staffById(r.staffId);confirmModal("Elimina richiesta","Eliminare definitivamente "+(r?KINDS[r.kind].toLowerCase():"la richiesta")+(p?" di "+p.name:"")+"?","Elimina","do-rqdel:"+t.dataset.id);return}
+  if(act.startsWith("do-rqdel:")){deleteReq(act.slice(9));closeModal();return}
+  if(act==="rq-new"){absenceModal();return}
+  if(act==="rq-add"){addAbsence();return}
   if(act==="newstaff"){staffModal(null,t.dataset.status);return}
   if(act==="editstaff"){staffModal(staffById(t.dataset.id));return}
   if(act==="st-save"){
@@ -927,7 +1086,7 @@ async function start(){
   sb.auth.onAuthStateChange((ev,s)=>{
     session=s;
     if(ev==="PASSWORD_RECOVERY"){recovery=true;mode="login";render();return}
-    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};mode="login";authMsg="";setStatus("ok","");render();return}
+    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};reqs=[];avail={};availWeeks={};reqReady=false;mode="login";authMsg="";setStatus("ok","");render();return}
     if((ev==="SIGNED_IN"||ev==="INITIAL_SESSION")&&s&&!orgId&&!recovery)setTimeout(start,0);
   });
   const {data}=await sb.auth.getSession();session=data.session;
