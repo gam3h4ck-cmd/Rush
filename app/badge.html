@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#faf7f1">
+<meta name="robots" content="noindex">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Rush · Badgeuse</title>
+<link rel="manifest" href="manifest-badge.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23faf7f1%27/%3E%3Crect x=%277%27 y=%278%27 width=%2714%27 height=%273.5%27 rx=%271.75%27 fill=%27%233d8b4f%27/%3E%3Crect x=%2710%27 y=%2714.25%27 width=%2716%27 height=%273.5%27 rx=%271.75%27 fill=%27%23e0ac34%27/%3E%3Crect x=%275%27 y=%2720.5%27 width=%2712%27 height=%273.5%27 rx=%271.75%27 fill=%27%23c8412b%27/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,800;1,9..144,900&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#faf7f1; --surface:#ffffff; --ink:#2b2420; --muted:#776c63; --line:#ebe3d6;
+  --accent:#c8412b; --accent-ink:#ffffff; --basil:#3d8b4f; --oil:#e0ac34;
+  --crit:#b42318; --crit-soft:#fde3df; --ok:#3d8b4f; --ok-soft:#e8f4eb; --warn:#946500; --warn-soft:#fdf2d2;
+  --sala:#6f8a9c; --cucina:#9c7f63; --bar:#9a7ea0;
+  --font-display:"Fraunces",Georgia,"Times New Roman",serif;
+  --font-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:17px/1.4 var(--font-body);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none;touch-action:manipulation;overscroll-behavior:none}
+button{font:inherit;color:inherit;touch-action:manipulation}
+header{background:var(--surface);padding:max(12px,env(safe-area-inset-top)) 20px 0}
+header::after{content:"";display:block;height:14px;margin:12px -20px 0;background:linear-gradient(90deg,rgba(200,65,43,.5) 50%,transparent 0) 0 0/14px 14px,linear-gradient(rgba(200,65,43,.5) 50%,transparent 0) 0 0/14px 14px,var(--surface)}
+.top{display:flex;align-items:center;gap:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{font-family:var(--font-display);font-size:34px;font-weight:900;font-style:italic;color:var(--accent);margin:0;line-height:1}
+.venue{color:var(--muted);font-size:16px;padding-left:12px;border-left:1px solid var(--line)}
+.clock{margin-left:auto;text-align:right}
+.clock b{font-family:var(--font-mono);font-size:40px;line-height:1;letter-spacing:-.02em;display:block}
+.clock span{font-size:14px;color:var(--muted)}
+.fs{border:1px solid var(--line);background:var(--surface);border-radius:10px;width:42px;height:42px;font-size:18px;cursor:pointer;color:var(--muted)}
+main{padding:20px;max-width:1200px;margin:0 auto}
+.hint{font-size:20px;font-weight:700;margin:0 0 4px;font-family:var(--font-display)}
+.sub{color:var(--muted);font-size:15px;margin:0 0 18px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--muted)}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--oil)} .dot.crit{background:var(--crit)}
+.net{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
+.group{margin:0 0 18px}
+.group h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.person{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:16px 14px;text-align:left;cursor:pointer;min-height:84px;display:grid;gap:6px;align-content:center;box-shadow:0 2px 0 var(--line)}
+.person b{font-size:20px;font-weight:800;line-height:1.15;word-break:break-word}
+.person small{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.person.in{border-color:var(--ok);background:var(--ok-soft);box-shadow:0 2px 0 #b9dcc2}
+.person.in small{color:var(--ok);font-weight:700}
+.person:disabled{opacity:.5;cursor:not-allowed}
+.person:active:not(:disabled){transform:translateY(1px);box-shadow:none}
+.overlay{position:fixed;inset:0;background:rgba(43,36,32,.45);display:grid;place-items:center;padding:16px;z-index:10}
+.sheet{background:var(--surface);border-radius:22px;padding:22px;width:min(420px,100%);box-shadow:0 20px 60px rgba(0,0,0,.25);text-align:center}
+.sheet h3{font-family:var(--font-display);font-size:30px;margin:0}
+.sheet .what{color:var(--muted);margin:4px 0 14px}
+.dots{display:flex;gap:14px;justify-content:center;margin:6px 0 16px}
+.dots i{width:18px;height:18px;border-radius:50%;border:2px solid var(--ink);display:block}
+.dots i.on{background:var(--ink)}
+.dots.shake{animation:shake .35s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pad button{height:68px;border-radius:14px;border:1px solid var(--line);background:#fffdf9;font-size:28px;font-weight:800;cursor:pointer;box-shadow:0 2px 0 var(--line)}
+.pad button:active{transform:translateY(1px);box-shadow:none;background:var(--bg)}
+.pad .fn{font-size:16px;font-weight:700;color:var(--muted)}
+.msg{min-height:24px;font-weight:700;margin:-6px 0 10px;font-size:16px}
+.msg.err{color:var(--crit)}
+.result{width:min(520px,100%);padding:34px 26px}
+.result .big{font-size:64px;line-height:1;margin-bottom:6px}
+.result h3{font-size:34px}
+.result p{font-size:20px;margin:10px 0 0}
+.result.ok{border-top:10px solid var(--ok)}
+.result.out{border-top:10px solid var(--accent)}
+.result.bad{border-top:10px solid var(--crit)}
+.cancel{margin-top:14px;border:0;background:transparent;color:var(--muted);font-weight:700;font-size:16px;cursor:pointer;padding:10px}
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:30px;text-align:center;color:var(--muted);font-size:18px}
+.mono{font-family:var(--font-mono)}
+@media (max-width:640px){.clock b{font-size:28px}.brand h1{font-size:28px}.venue{display:none}.grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<script src="config.js"></script>
+<script src="vendor/supabase.js"></script>
+<header><div class="top">
+  <div class="brand"><svg width="30" height="22" viewBox="0 0 30 22" aria-hidden="true"><rect x="2" y="3" width="18" height="3.6" rx="1.8" fill="#3d8b4f"/><rect x="7" y="9.2" width="21" height="3.6" rx="1.8" fill="#e0ac34"/><rect x="0" y="15.4" width="15" height="3.6" rx="1.8" fill="#c8412b"/></svg><h1>Rush</h1><span class="venue" id="venue"></span></div>
+  <div class="clock" aria-live="off"><b id="time">--:--</b><span id="date"></span></div>
+  <button class="fs" id="fs" aria-label="Schermo intero" title="Schermo intero">⛶</button>
+</div></header>
+<main id="main"><div class="empty">Caricamento…</div></main>
+<div id="layer"></div>
+<script>
+"use strict";
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TZ="Europe/Brussels";
+const fT=new Intl.DateTimeFormat("it-BE",{timeZone:TZ,hour:"2-digit",minute:"2-digit",hour12:false});
+const fD=new Intl.DateTimeFormat("it-IT",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"});
+const ROLES={sala:"Sala",cucina:"Cucina",bar:"Bar"};
+let token=(location.hash||"").slice(1).trim();
+if(/^[0-9a-f-]{36}$/i.test(token))store.set("rush-kiosk-token",token);else token=store.get("rush-kiosk-token")||"";
+let sb=null, state=null, offset=0, online=true, busy=false, sel=null, pin="", closeTimer=null;
+
+const now=()=>new Date(Date.now()+offset);           // orologio allineato al server
+const hm=d=>fT.format(d);
+function dur(ms){const m=Math.max(0,Math.round(ms/60000));return Math.floor(m/60)+" h "+String(m%60).padStart(2,"0")+" min"}
+function tick(){const d=now();document.getElementById("time").textContent=hm(d);const t=fD.format(d);document.getElementById("date").textContent=t.charAt(0).toUpperCase()+t.slice(1)}
+function main(html){document.getElementById("main").innerHTML=html}
+
+async function load(){
+  try{
+    const t0=Date.now();
+    const {data,error}=await sb.rpc("kiosk_state",{p_kiosk:token});
+    if(error)throw error;
+    if(data===null){state=null;main('<div class="empty">Questo tablet non è collegato a Rush.<br>Apri il link del tablet creato in Rush → Impostazioni → Badgeuse.</div>');return}
+    const srv=new Date(data.now).getTime();offset=srv-(t0+Date.now())/2;
+    state=data;online=true;render();
+  }catch(e){online=false;if(state)render();else main('<div class="empty">Nessuna connessione a internet.<br>Riprovo tra pochi secondi…</div>')}
+}
+function render(){
+  document.getElementById("venue").textContent=state.venue||"";
+  const by={};for(const p of state.staff)(by[p.role]=by[p.role]||[]).push(p);
+  let h='<div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px"><div><p class="hint">Tocca il tuo nome per timbrare</p><p class="sub" style="margin:0">Entrata o uscita viene scelta da sola. Poi inserisci il tuo PIN di 4 cifre.</p></div><span style="margin-left:auto" class="net"><span class="dot '+(online?"ok":"crit")+'"></span>'+(online?"Collegato":"Senza connessione")+'</span></div>';
+  if(!state.staff.length)h+='<div class="empty">Nessun dipendente in Rush.</div>';
+  for(const r of ["sala","cucina","bar"]){if(!by[r])continue;
+    h+='<section class="group"><h2>'+ROLES[r]+'</h2><div class="grid">'+by[r].map(p=>{const inn=!!p.in_since;
+      return '<button class="person'+(inn?" in":"")+'" data-id="'+esc(p.id)+'"'+(p.has_pin?"":" disabled")+'><b>'+esc(p.name)+'</b><small>'+(p.has_pin?(inn?'<span class="dot ok"></span>In servizio dalle '+hm(new Date(p.in_since)):'Fuori servizio'):'PIN non impostato')+'</small></button>'}).join("")+'</div></section>';
+  }
+  main(h);
+}
+function sheet(html,cls){document.getElementById("layer").innerHTML='<div class="overlay" id="ov"><div class="sheet '+(cls||"")+'" role="dialog" aria-modal="true">'+html+'</div></div>'}
+function closeSheet(){clearTimeout(closeTimer);sel=null;pin="";document.getElementById("layer").innerHTML=""}
+function armClose(ms){clearTimeout(closeTimer);closeTimer=setTimeout(()=>{closeSheet();load()},ms)}
+function pinSheet(msg,err){
+  const p=state.staff.find(x=>x.id===sel);if(!p){closeSheet();return}
+  const what=p.in_since?"Uscita":"Entrata";
+  sheet('<h3>'+esc(p.name)+'</h3><div class="what">'+what+' · inserisci il tuo PIN</div><div class="dots" id="dots">'+[0,1,2,3].map(i=>'<i class="'+(i<pin.length?"on":"")+'"></i>').join("")+'</div><div class="msg'+(err?" err":"")+'" role="status">'+esc(msg||"")+'</div>'+
+    '<div class="pad">'+[1,2,3,4,5,6,7,8,9].map(n=>'<button data-k="'+n+'">'+n+'</button>').join("")+'<button class="fn" data-k="x">Annulla</button><button data-k="0">0</button><button class="fn" data-k="b" aria-label="Cancella">⌫</button></div>');
+  if(err){const d=document.getElementById("dots");d.classList.add("shake")}
+  armClose(30000);
+}
+function resultSheet(kind,html,cls,ms){
+  sheet('<div class="big" aria-hidden="true">'+kind+'</div>'+html,"result "+cls);armClose(ms||4500);
+}
+async function submit(){
+  if(busy)return;busy=true;
+  const p=state.staff.find(x=>x.id===sel),code=pin;
+  try{
+    const {data,error}=await sb.rpc("kiosk_punch",{p_kiosk:token,p_staff:sel,p_pin:code});
+    if(error)throw error;
+    if(data.error==="pin"){pin="";pinSheet("PIN errato, riprova",true);busy=false;return}
+    if(data.error==="locked"){resultSheet("🔒",'<h3>Troppi tentativi</h3><p>Aspetta 15 minuti o chiedi al responsabile di reimpostare il PIN.</p>',"bad",6000)}
+    else if(data.error==="double"){resultSheet("✓",'<h3>Hai appena timbrato</h3><p>'+(data.kind==="in"?"Entrata":"Uscita")+' registrata alle '+hm(new Date(data.at))+'.</p>',"ok",4000)}
+    else if(data.error==="nopin"){resultSheet("!",'<h3>PIN non impostato</h3><p>Chiedi al responsabile.</p>',"bad",5000)}
+    else if(data.error){resultSheet("!",'<h3>Tablet non collegato</h3><p>Chiedi al responsabile.</p>',"bad",6000)}
+    else if(data.kind==="in"){resultSheet("👋",'<h3>Entrata alle '+hm(new Date(data.at))+'</h3><p>Buon lavoro, '+esc(data.name)+'!</p>',"ok")}
+    else{resultSheet("✓",'<h3>Uscita alle '+hm(new Date(data.at))+'</h3><p>'+(data.since?"Sei stato in servizio "+dur(new Date(data.at)-new Date(data.since))+". ":"")+'A presto, '+esc(data.name)+'!</p>',"out")}
+  }catch(e){
+    online=false;
+    resultSheet("✕",'<h3>Timbratura NON registrata</h3><p>Nessuna connessione a internet. Riprova tra poco; se il problema continua avvisa il responsabile.</p>',"bad",7000);
+  }
+  busy=false;
+}
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".person");
+  if(b&&!b.disabled&&state){sel=b.dataset.id;pin="";pinSheet();return}
+  const k=e.target.closest("[data-k]");
+  if(k&&sel){const v=k.dataset.k;
+    if(v==="x"){closeSheet();return}
+    if(v==="b"){pin=pin.slice(0,-1);pinSheet();return}
+    if(pin.length<4&&!busy){pin+=v;pinSheet();if(pin.length===4)submit()}
+    return;
+  }
+  if(e.target.id==="ov"&&!busy){closeSheet();load()}
+  if(e.target.id==="fs"){const d=document.documentElement;if(!document.fullscreenElement&&d.requestFullscreen)d.requestFullscreen().catch(()=>{});else if(document.exitFullscreen)document.exitFullscreen().catch(()=>{})}
+});
+document.addEventListener("keydown",e=>{if(!sel||busy)return;if(/^[0-9]$/.test(e.key)&&pin.length<4){pin+=e.key;pinSheet();if(pin.length===4)submit()}else if(e.key==="Backspace"){pin=pin.slice(0,-1);pinSheet()}else if(e.key==="Escape")closeSheet()});
+// schermo sempre acceso, dove il browser lo permette
+let lock=null;async function keepAwake(){try{if("wakeLock" in navigator&&document.visibilityState==="visible")lock=await navigator.wakeLock.request("screen")}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"){keepAwake();load()}});
+window.addEventListener("online",load);
+window.addEventListener("hashchange",()=>location.reload());
+(function(){
+  tick();setInterval(tick,1000);
+  const C=window.RUSH_CONFIG||{};
+  if(!token){main('<div class="empty">Questo tablet non è ancora collegato.<br>In Rush vai su Impostazioni → Badgeuse e apri qui il link del tablet.</div>');return}
+  if(!window.supabase||!C.supabaseUrl||/INSERISCI/.test(C.supabaseUrl)){main('<div class="empty">App non ancora configurata.</div>');return}
+  sb=window.supabase.createClient(C.supabaseUrl,C.supabaseAnonKey,{auth:{persistSession:false,autoRefreshToken:false}});
+  keepAwake();load();setInterval(()=>{if(!sel&&!busy)load()},30000);
+})();
+if("serviceWorker" in navigator&&location.protocol==="https:")window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+</body>
+</html>

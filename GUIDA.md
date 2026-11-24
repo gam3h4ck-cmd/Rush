@@ -128,3 +128,28 @@ Come funziona:
 
 Chi ha chiesto può annullare finché non hai deciso. Se nel frattempo modifichi o elimini uno dei turni coinvolti, l'approvazione viene bloccata per sicurezza: rifiuta il cambio e fanne fare uno nuovo.
 
+---
+
+## Aggiornamento: badgeuse (timbrature con tablet e PIN)
+
+**1. Database (una sola volta).** In Supabase apri **SQL Editor → New query**, incolla tutto `supabase/aggiornamento-badgeuse.sql` e premi **Run**.
+
+**2. Collega il tablet del ristorante.**
+- In Rush vai su **Impostazioni → Badgeuse → Collega un tablet**: il link viene creato e copiato.
+- Mandalo al tablet (email o WhatsApp) e aprilo con **Chrome**.
+- Nel menu ⋮ di Chrome scegli **Aggiungi a schermata Home** (o **Installa app**): la badgeuse si apre a schermo intero.
+- Consigliato: in Impostazioni Android attiva **Blocco su schermo/Fissa app** (Sicurezza → Altre impostazioni), così il tablet resta sulla badgeuse.
+- Ogni ristorante ha il suo Rush, quindi crei il link dal Rush di quel ristorante.
+
+**3. PIN.** In **Impostazioni → PIN dei dipendenti** imposta un PIN di 4 cifre per ognuno (anche generato a caso). Il PIN si vede una sola volta: comunicalo di persona. Se qualcuno lo dimentica, ne imposti uno nuovo. Dopo 5 PIN sbagliati il dipendente resta bloccato per 15 minuti (oppure finché non imposti un nuovo PIN).
+
+**Come timbrano.** Toccano il proprio nome e inseriscono il PIN: Rush decide da solo se è un'entrata o un'uscita. Vale l'ora del server, non quella del tablet. Se manca internet, il tablet dice chiaramente che la timbratura **non** è stata registrata.
+
+**Scheda Presenze.** Per ogni mese e dipendente vedi entrate, uscite, pausa (quella del planning), ore effettive e pianificate, con le anomalie: uscita o entrata mancante, turno senza timbrature. Le correzioni (**+ uscita**, **Aggiungi timbratura**, **Annulla timbratura**) chiedono sempre un motivo e restano nel registro con data e autore. Le timbrature non si possono cancellare, nemmeno eliminando il dipendente.
+
+**Export.**
+- **Tabella paghe (CSV)**: una riga per giorno e i totali per dipendente, da mandare a chi fa le fiches de paie. Si apre con Excel.
+- **Registro completo (CSV)**: tutte le timbrature con correzioni e annullamenti. Conservalo per almeno 5 anni.
+
+Da sapere: questo registro interno non sostituisce la registrazione delle presenze per l'ONSS tramite caisse enregistreuse (SCE) o SAE, se il ristorante usa la riduzione contributi horeca. Prima di usarla in produzione falla validare dal segretariato sociale e informa i dipendenti (cosa viene registrato, perché e per quanto tempo).
+

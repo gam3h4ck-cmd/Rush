@@ -240,7 +240,35 @@ td.cell.offday{background:repeating-linear-gradient(135deg,var(--surface) 0 8px,
 .avt td.av{text-align:center;white-space:nowrap}
 #sh-warn:empty{display:none}
 #sh-warn{background:var(--warn-soft);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--ink);display:grid;gap:2px}
+.att-in{display:flex;flex-wrap:wrap;gap:8px;padding:12px 14px}
+.att-in span{background:var(--t-pranzo-soft);border:1px solid var(--basil);color:var(--basil);border-radius:999px;padding:4px 12px;font-weight:700;font-size:14px}
+details.att{border-bottom:1px solid var(--line)}
+details.att:last-child{border-bottom:0}
+details.att>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(140px,1.4fr) repeat(4,minmax(70px,.7fr)) 1.2fr;gap:8px;align-items:center;padding:12px 14px}
+details.att>summary::-webkit-details-marker{display:none}
+details.att>summary:hover{background:var(--bg)}
+details.att[open]>summary{background:var(--bg)}
+.att-h{display:grid;grid-template-columns:minmax(140px,1.4fr) repeat(4,minmax(70px,.7fr)) 1.2fr;gap:8px;padding:8px 14px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+.att-days td,.att-days th{padding:7px 10px;font-size:14px}
+.att-days{width:100%;border-collapse:collapse}
+.att-days th{text-align:left;font-size:12px;color:var(--muted);font-weight:700}
+.att-days .r{text-align:right}
+.att-days tr{border-top:1px solid var(--line)}
+.pt{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:2px 8px;font-family:var(--font-mono);font-size:13px;font-weight:700;cursor:pointer}
+.pt.adm{border-color:var(--oil);background:#fff7e3}
+.pt.miss{border-style:dashed;color:var(--crit);font-family:var(--font-body);font-weight:700}
+.att-flag{display:inline-block;font-size:11px;font-weight:800;padding:1px 7px;border-radius:999px;margin:1px 2px 1px 0}
+.att-flag.crit{background:var(--crit-soft);color:var(--crit)}
+.att-flag.warn{background:var(--warn-soft);color:var(--warn)}
+.att-flag.ok{background:var(--t-pranzo-soft);color:var(--basil)}
+.kiosk{display:grid;grid-template-columns:1fr auto;gap:8px 12px;padding:12px 14px;border-bottom:1px solid var(--line);align-items:center}
+.kiosk:last-child{border-bottom:0}
+.kiosk input{width:100%;font-family:var(--font-mono);font-size:12px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.bigpin{font-family:var(--font-mono);font-size:44px;letter-spacing:.2em;text-align:center;margin:6px 0}
 @media (max-width:699px){
+  details.att>summary,.att-h{grid-template-columns:1fr 70px 70px}
+  details.att>summary>:nth-child(3),details.att>summary>:nth-child(5),details.att>summary>:nth-child(6),.att-h>:nth-child(3),.att-h>:nth-child(5),.att-h>:nth-child(6){display:none}
+  .kiosk{grid-template-columns:1fr}
   .rq{grid-template-columns:1fr}
 
   .tiles{grid-template-columns:1fr 1fr;gap:8px}
@@ -278,6 +306,7 @@ td.cell.offday{background:repeating-linear-gradient(135deg,var(--surface) 0 8px,
     <nav class="tabs" id="tabs" aria-label="Sezioni">
       <a href="#planning">Planning</a>
       <a href="#richieste">Richieste</a>
+      <a href="#presenze">Presenze</a>
       <a href="#ore">Ore e budget</a>
       <a href="#fissi">Fissi</a>
       <a href="#studenti">Studenti</a>
@@ -333,7 +362,9 @@ let sb=null, session=null, orgId=null, starting=false, lastLoad=0, authMsg="", r
 let srvShifts={}, srvStaff={}, srvOrg="";
 let dayIdx=null;
 let reqs=[], avail={}, availWeeks={}, reqReady=false;
-let swaps=[], swapReady=false;   // cambi turno tra colleghi   // richieste ferie/giorni liberi e disponibilità studenti
+let swaps=[], swapReady=false;   // cambi turno tra colleghi
+// badgeuse: timbrature del mese mostrato, PIN, tablet. ready: null = da caricare, false = database non aggiornato
+let att={ready:null,loading:false,month:"",punches:[],pins:{},kiosks:[],at:0};   // richieste ferie/giorni liberi e disponibilità studenti
 const isMobile=()=>window.innerWidth<700;
 const today=new Date();
 let curMonday=mondayOf(today);
@@ -535,7 +566,7 @@ function studentHours(p,year){
 }
 
 /* ---------- rendering ---------- */
-const route=()=>{const h=(location.hash||"").slice(1);return ["planning","richieste","ore","fissi","studenti","indipendenti","link","impostazioni"].includes(h)?h:"planning"};
+const route=()=>{const h=(location.hash||"").slice(1);return ["planning","richieste","presenze","ore","fissi","studenti","indipendenti","link","impostazioni"].includes(h)?h:"planning"};
 function render(){
   document.getElementById("venue").textContent=cfg.venue||"";
   document.querySelectorAll("#tabs a").forEach(a=>a.getAttribute("href")==="#"+route()?a.setAttribute("aria-current","page"):a.removeAttribute("aria-current"));
@@ -547,7 +578,8 @@ function render(){
   if(mode==="login"){main.innerHTML=viewLogin();return}
   if(mode!=="db"){main.innerHTML='<div class="panel"><div class="empty">Caricamento del planning…</div></div>';return}
   const r=route();
-  html+=r==="link"?viewLinks():r==="planning"?viewPlanning():r==="richieste"?viewRichieste():r==="ore"?viewOre():r==="fissi"?viewFissi():r==="studenti"?viewStudenti():r==="indipendenti"?viewIndipendenti():viewSettings();
+  if(r==="presenze"||r==="impostazioni")ensureAtt();
+  html+=r==="link"?viewLinks():r==="planning"?viewPlanning():r==="richieste"?viewRichieste():r==="presenze"?viewPresenze():r==="ore"?viewOre():r==="fissi"?viewFissi():r==="studenti"?viewStudenti():r==="indipendenti"?viewIndipendenti():viewSettings();
   main.innerHTML=html;
   renderClipbar();
 }
@@ -909,6 +941,240 @@ async function deleteReq(id){
   if(error){console.error(error);toast("Non riuscito, riprova");return}
   reqs=reqs.filter(x=>x.id!==id);render();toast("Richiesta eliminata");
 }
+/* ---------- badgeuse e presenze ---------- */
+const TZ="Europe/Brussels";
+const fmtHM=new Intl.DateTimeFormat("it-BE",{timeZone:TZ,hour:"2-digit",minute:"2-digit",hour12:false});
+const fmtYMD=new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit"});
+const tHM=v=>fmtHM.format(new Date(v));
+const tYMD=v=>fmtYMD.format(new Date(v));
+const curMonth=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+const monthLabel=m=>{const [y,mo]=m.split("-").map(Number);return MONTHS_LONG[mo-1].replace(/^./,c=>c.toUpperCase())+" "+y};
+const shiftMonth=(m,n)=>{const [y,mo]=m.split("-").map(Number);const d=new Date(y,mo-1+n,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")};
+const badgeLink=k=>new URL("badge.html#"+k.token,location.href).href;
+async function ensureAtt(force){
+  if(!att.month)att.month=curMonth();
+  if(!force&&att.ready===true&&Date.now()-att.at>120000)force=true;   // dati più vecchi di 2 minuti: ricarica
+  if(att.loading||(!force&&att.ready!==null))return;
+  att.loading=true;
+  try{
+    const [y,mo]=att.month.split("-").map(Number);
+    const from=new Date(y,mo-1,0),to=new Date(y,mo,2);            // un giorno prima e due dopo: turni a cavallo della mezzanotte
+    const [pu,pi,ki]=await Promise.all([
+      fetchAll(()=>sb.from("punches").select("id,staff_id,staff_name,kind,at,source,kiosk_id,created_at,reason,voided,voided_at,void_reason").eq("org_id",orgId).gte("at",from.toISOString()).lt("at",to.toISOString()).order("at").order("id")),
+      sb.rpc("admin_pin_status",{p_org:orgId}),
+      sb.from("kiosks").select("id,name,token,active,created_at,last_seen").eq("org_id",orgId).order("created_at")
+    ]);
+    if(pi.error)throw pi.error;if(ki.error)throw ki.error;
+    att.punches=pu;att.pins={};for(const x of pi.data||[])att.pins[x.staff_id]=x.updated_at;att.kiosks=ki.data||[];
+    att.ready=true;att.at=Date.now();
+  }catch(e){console.warn("Badgeuse non disponibile",e);att.ready=false}
+  att.loading=false;
+  if(route()==="presenze"||route()==="impostazioni")render();
+}
+// coppie entrata/uscita per dipendente; ogni sessione appartiene al giorno dell'entrata
+function attSessions(){
+  const by={};
+  for(const x of att.punches){if(x.voided)continue;const key=x.staff_id||("n:"+x.staff_name);(by[key]=by[key]||[]).push(x)}
+  const out=[],nowMs=Date.now();
+  for(const key in by){
+    const list=by[key].sort((a,b)=>String(a.at).localeCompare(String(b.at)));let open=null;
+    const push=(i,o)=>{const ref=i||o;out.push({key,staffId:ref.staff_id,name:(staffById(ref.staff_id)||{}).name||ref.staff_name,in:i,out:o,day:tYMD(ref.at)})};
+    for(const x of list){
+      if(x.kind==="in"){if(open)push(open,null);open=x}
+      else{if(open){push(open,x);open=null}else push(null,x)}
+    }
+    if(open)push(open,null);
+  }
+  for(const s of out){
+    s.live=!!(s.in&&!s.out&&nowMs-new Date(s.in.at)<20*3600e3);
+    s.gross=s.in&&s.out?(new Date(s.out.at)-new Date(s.in.at))/3600e3:0;
+  }
+  return out;
+}
+function plannedOn(staffId,ds){
+  const d=parseYmd(ds),k=weekKey(mondayOf(d)),di=(d.getDay()+6)%7;
+  return (weeks[k]||[]).filter(x=>x.staffId===staffId&&x.day===di).sort((a,b)=>toMin(a.start)-toMin(b.start));
+}
+// righe giornaliere del mese: sessioni + pausa del planning + confronto con il pianificato
+function attRows(){
+  const ses=attSessions().filter(s=>s.day.slice(0,7)===att.month);
+  const days={};
+  for(const s of ses){const k=s.key+"|"+s.day;(days[k]=days[k]||{key:s.key,staffId:s.staffId,name:s.name,day:s.day,ses:[]}).ses.push(s)}
+  // giorni pianificati senza nessuna timbratura (solo passati)
+  const today=ymd(new Date());
+  for(const k in weeks){const mo=mondayFromKey(k);if(!mo)continue;
+    for(const x of weeks[k]){const ds=ymd(addDays(mo,x.day));if(ds.slice(0,7)!==att.month||ds>=today)continue;const p=staffById(x.staffId);if(!p)continue;
+      const kk=x.staffId+"|"+ds;if(!days[kk])days[kk]={key:x.staffId,staffId:x.staffId,name:p.name,day:ds,ses:[]}}}
+  const rows=Object.values(days);
+  for(const r of rows){
+    r.ses.sort((a,b)=>String((a.in||a.out).at).localeCompare(String((b.in||b.out).at)));
+    const pl=r.staffId?plannedOn(r.staffId,r.day):[];
+    r.planned=pl.reduce((a,x)=>a+shiftHours(x),0);
+    let pause=0;const used=new Set();
+    for(const s of r.ses){if(!s.in||!s.out)continue;
+      const a=new Date(s.in.at),b=new Date(s.out.at);
+      for(const x of pl){if(used.has(x.id))continue;const xs=parseYmd(r.day);xs.setMinutes(toMin(x.start));const xe=new Date(xs.getTime()+shiftMinutes(x)*60000);
+        if(xs<b&&xe>a){used.add(x.id);pause+=(+x.pause||0)}}}
+    r.pause=pause;
+    r.gross=r.ses.reduce((a,s)=>a+s.gross,0);
+    r.net=Math.max(0,r.gross-pause/60);
+    r.flags=[];
+    if(r.ses.some(s=>!s.in))r.flags.push(["crit","entrata mancante"]);
+    if(r.ses.some(s=>s.in&&!s.out&&!s.live))r.flags.push(["crit","uscita mancante"]);
+    if(r.ses.some(s=>s.live))r.flags.push(["ok","in servizio"]);
+    if(!r.ses.length&&r.planned)r.flags.push(["warn","nessuna timbratura"]);
+    if(r.ses.some(s=>(s.in&&s.in.source==="admin")||(s.out&&s.out.source==="admin")))r.flags.push(["warn","corretta"]);
+  }
+  return rows.sort((a,b)=>a.name.localeCompare(b.name)||a.day.localeCompare(b.day));
+}
+const h2=n=>(Math.round(n*100)/100).toLocaleString("it-BE",{minimumFractionDigits:2,maximumFractionDigits:2});
+function ptBtn(x,kind){return x?'<button class="pt'+(x.source==="admin"?" adm":"")+'" data-act="att-punch" data-id="'+x.id+'" title="'+(x.source==="admin"?"Inserita a mano: "+esc(x.reason):"Dal tablet")+'">'+tHM(x.at)+'</button>':''}
+function viewPresenze(){
+  let h='<div class="row"><h2 class="ph">Presenze</h2><span class="spacer"></span>'+(att.ready?'<button class="btn" data-act="att-csv">Tabella paghe (CSV)</button><button class="btn" data-act="att-log">Registro completo (CSV)</button>'+(readOnly?'':'<button class="btn primary" data-act="att-add">Aggiungi timbratura</button>'):'')+'</div>';
+  if(att.ready===null)return h+'<div class="panel"><div class="empty">Caricamento delle presenze…</div></div>';
+  if(att.ready===false)return h+'<div class="panel"><div class="empty">Per usare la badgeuse esegui una volta il file <b>supabase/aggiornamento-badgeuse.sql</b> in Supabase → SQL Editor → Run, poi ricarica questa pagina.</div></div>';
+  if(!att.kiosks.length)h+='<div class="banner">Nessun tablet collegato: crealo in <a href="#impostazioni">Impostazioni → Badgeuse</a> e imposta i PIN dei dipendenti.</div>';
+  const live=attSessions().filter(s=>s.live).sort((a,b)=>a.name.localeCompare(b.name));
+  h+='<div class="panel"><div class="hd"><h3>In servizio adesso</h3><span class="spacer"></span><button class="btn" data-act="att-refresh">Aggiorna</button></div>'+(live.length?'<div class="att-in">'+live.map(s=>'<span>'+esc(s.name)+' · dalle '+tHM(s.in.at)+'</span>').join("")+'</div>':'<div class="empty">Nessuno ha timbrato l\'entrata.</div>')+'</div>';
+  h+='<div class="row"><div class="weeknav"><button class="icon-btn" data-act="att-prev" aria-label="Mese precedente">‹</button><h2>'+monthLabel(att.month)+'</h2><button class="icon-btn" data-act="att-next" aria-label="Mese successivo">›</button><button class="btn" data-act="att-now">Oggi</button></div></div>';
+  const rows=attRows();
+  const per={};for(const r of rows)(per[r.key]=per[r.key]||{name:r.name,staffId:r.staffId,rows:[]}).rows.push(r);
+  const people=Object.values(per).sort((a,b)=>a.name.localeCompare(b.name));
+  h+='<div class="panel"><div class="att-h"><span>Dipendente</span><span>Giorni</span><span>Pianificate</span><span>Effettive</span><span>Differenza</span><span>Da controllare</span></div>';
+  if(!people.length)h+='<div class="empty">Nessuna timbratura e nessun turno in questo mese.</div>';
+  for(const g of people){
+    const net=g.rows.reduce((a,r)=>a+r.net,0),pl=g.rows.reduce((a,r)=>a+r.planned,0),worked=g.rows.filter(r=>r.ses.length).length;
+    const bad=g.rows.filter(r=>r.flags.some(f=>f[0]==="crit"||f[1]==="nessuna timbratura")).length;
+    const diff=net-pl;
+    h+='<details class="att"><summary><b>'+esc(g.name)+(g.staffId&&!staffById(g.staffId)?' <span class="sub2">(eliminato)</span>':'')+'</b><span class="num">'+worked+'</span><span class="num">'+hrs(pl)+'</span><span class="num"><b>'+hrs(net)+'</b></span><span class="num" style="color:'+(Math.abs(diff)<0.01?"var(--muted)":diff>0?"var(--warn)":"var(--crit)")+'">'+(diff>0?"+":"")+hrs(diff)+'</span><span>'+(bad?'<span class="att-flag crit">'+bad+(bad===1?" giorno":" giorni")+'</span>':'<span class="sub2">—</span>')+'</span></summary>'+
+      '<div class="gridwrap"><table class="att-days"><thead><tr><th>Giorno</th><th>Entrata</th><th>Uscita</th><th class="r">Pausa</th><th class="r">Effettive</th><th class="r">Pianificate</th><th></th></tr></thead><tbody>'+
+      g.rows.map(r=>{
+        const lines=r.ses.length?r.ses:[null];
+        return lines.map((s,i)=>'<tr><td>'+(i?'':'<b>'+fmtDayW(parseYmd(r.day))+'</b>')+'</td>'+
+          '<td>'+(s?(s.in?ptBtn(s.in):(readOnly?'—':'<button class="pt miss" data-act="att-add" data-staff="'+(r.staffId||"")+'" data-kind="in" data-day="'+r.day+'">+ entrata</button>')):(readOnly?'—':'<button class="pt miss" data-act="att-add" data-staff="'+(r.staffId||"")+'" data-kind="in" data-day="'+r.day+'">+ entrata</button>'))+'</td>'+
+          '<td>'+(s?(s.out?ptBtn(s.out):(s.live?'<span class="att-flag ok">in servizio</span>':(readOnly?'—':'<button class="pt miss" data-act="att-add" data-staff="'+(r.staffId||"")+'" data-kind="out" data-day="'+r.day+'">+ uscita</button>'))):'')+'</td>'+
+          (i?'<td></td><td></td><td></td><td></td>':'<td class="r num">'+(r.pause&&r.gross>0?r.pause+" min":"—")+'</td><td class="r num"><b>'+(r.gross>0?hrs(r.net):"—")+'</b></td><td class="r num">'+(r.planned?hrs(r.planned):"—")+'</td><td>'+r.flags.filter(f=>f[1]!=="in servizio").map(f=>'<span class="att-flag '+f[0]+'">'+f[1]+'</span>').join("")+'</td>')+'</tr>').join("");
+      }).join("")+'</tbody></table></div></details>';
+  }
+  h+='</div><p class="help" style="font-size:12px;color:var(--muted);margin:0">La pausa è quella prevista nel planning per i turni di quel giorno. Le timbrature non si cancellano: le correzioni restano nel registro con data, autore e motivo. Conserva gli export mensili per almeno 5 anni.</p>';
+  return h;
+}
+function attAddModal(staffId,kind,day){
+  const opts=cfg.staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<option value="'+p.id+'"'+(p.id===staffId?" selected":"")+'>'+esc(p.name)+'</option>').join("");
+  const d=day||ymd(new Date());
+  let tm="";if(staffId&&day){const pl=plannedOn(staffId,day);if(pl.length)tm=kind==="out"?pl[pl.length-1].end:pl[0].start}
+  openModal("Aggiungi timbratura",'<div class="two"><div class="field"><label for="ap-staff">Dipendente</label><select id="ap-staff">'+opts+'</select></div><div class="field"><label for="ap-kind">Tipo</label><select id="ap-kind"><option value="in"'+(kind==="in"?" selected":"")+'>Entrata</option><option value="out"'+(kind==="out"?" selected":"")+'>Uscita</option></select></div></div>'+
+    '<div class="two"><div class="field"><label for="ap-day">Giorno</label><input id="ap-day" type="date" value="'+d+'"></div><div class="field"><label for="ap-time">Ora</label><input id="ap-time" type="time" value="'+esc(tm)+'"></div></div>'+
+    '<div class="field"><label for="ap-reason">Motivo (obbligatorio)</label><input id="ap-reason" type="text" maxlength="200" placeholder="es. ha dimenticato di timbrare l\'uscita"></div>'+
+    '<p class="help" style="margin:0;font-size:12px;color:var(--muted)">Resta nel registro come correzione, con il tuo account e il motivo.'+(tm?' Orario proposto dal planning: controllalo.':'')+'</p><div class="err" id="ap-err"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="att-add-do">Aggiungi</button>');
+}
+async function attAddDo(){
+  const g=id=>document.getElementById(id).value,err=t=>{document.getElementById("ap-err").textContent=t};
+  const st=g("ap-staff"),kind=g("ap-kind"),day=g("ap-day"),tm=g("ap-time"),reason=g("ap-reason").trim();
+  if(!st||!day||!/^\d\d:\d\d$/.test(tm)){err("Scegli dipendente, giorno e ora.");return}
+  if(reason.length<3){err("Scrivi il motivo della correzione.");return}
+  const [y,mo,d]=day.split("-").map(Number),[hh,mi]=tm.split(":").map(Number);
+  const at=new Date(y,mo-1,d,hh,mi);
+  if(at.getTime()>Date.now()+5*60000){err("L'orario è nel futuro.");return}
+  const {error}=await sb.rpc("admin_punch_add",{p_staff:st,p_kind:kind,p_at:at.toISOString(),p_reason:reason});
+  if(error){console.error(error);err(/orario/.test(error.message||"")?"Orario non valido.":"Salvataggio non riuscito, riprova.");return}
+  closeModal();toast("Timbratura aggiunta");await ensureAtt(true);
+}
+function attPunchModal(id){
+  const x=att.punches.find(p=>p.id===id);if(!x)return;
+  const k=att.kiosks.find(z=>z.id===x.kiosk_id);
+  openModal((x.kind==="in"?"Entrata":"Uscita")+" · "+((staffById(x.staff_id)||{}).name||x.staff_name),
+    '<p style="margin:0" class="num"><b>'+fmtDayW(parseYmd(tYMD(x.at)))+' alle '+tHM(x.at)+'</b></p>'+
+    '<p class="sub2" style="margin:0">'+(x.source==="tablet"?'Dal tablet'+(k?' «'+esc(k.name)+'»':''):'Inserita a mano il '+fmtStamp(x.created_at)+' · motivo: '+esc(x.reason))+'</p>'+
+    (readOnly?'':'<div class="field"><label for="av-reason">Per annullarla scrivi il motivo</label><input id="av-reason" type="text" maxlength="200" placeholder="es. timbrata due volte per errore"></div><div class="err" id="av-err"></div>'),
+    '<span class="spacer"></span><button class="btn" data-act="close">Chiudi</button>'+(readOnly?'':'<button class="btn danger" data-act="att-void-do" data-id="'+id+'">Annulla timbratura</button>'));
+}
+async function attVoidDo(id){
+  const reason=(document.getElementById("av-reason")||{}).value||"";
+  if(reason.trim().length<3){document.getElementById("av-err").textContent="Scrivi il motivo dell'annullamento.";return}
+  const {error}=await sb.rpc("admin_punch_void",{p_id:id,p_reason:reason.trim()});
+  if(error){console.error(error);document.getElementById("av-err").textContent="Non riuscito, riprova.";return}
+  closeModal();toast("Timbratura annullata (resta nel registro)");await ensureAtt(true);
+}
+function downloadFile(name,text){
+  const blob=new Blob(["\ufeff"+text],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+const csvCell=v=>{const t=String(v??"");return /[;"\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t};
+const csvLine=a=>a.map(csvCell).join(";");
+function attCsv(){
+  const rows=attRows(),lines=[csvLine(["Locale",cfg.venue||""]),csvLine(["Mese",monthLabel(att.month)]),"",
+    csvLine(["Dipendente","Statuto","Giorno","Entrata","Uscita","Pausa (min)","Ore effettive","Ore pianificate","Note"])];
+  const tot={};
+  for(const r of rows){
+    const p=staffById(r.staffId),stt=p?(STATUSES[p.status]||p.status):"";
+    const ses=r.ses.length?r.ses:[null];
+    ses.forEach((s,i)=>lines.push(csvLine([r.name,stt,r.day,s&&s.in?tHM(s.in.at):"",s&&s.out?tHM(s.out.at):"",i?"":(r.gross>0?r.pause:""),i?"":(r.gross>0?h2(r.net):""),i?"":(r.planned?h2(r.planned):""),i?"":r.flags.map(f=>f[1]).join(", ")])));
+    const t=tot[r.key]=tot[r.key]||{name:r.name,stt,net:0,pl:0,days:0};t.net+=r.net;t.pl+=r.planned;if(r.ses.length)t.days++;
+  }
+  lines.push("",csvLine(["TOTALI"]),csvLine(["Dipendente","Statuto","Giorni lavorati","Ore effettive","Ore pianificate"]));
+  Object.values(tot).sort((a,b)=>a.name.localeCompare(b.name)).forEach(t=>lines.push(csvLine([t.name,t.stt,t.days,h2(t.net),h2(t.pl)])));
+  downloadFile("presenze-"+att.month+".csv",lines.join("\r\n"));
+}
+function attLog(){
+  const ym=att.month,lines=[csvLine(["Data","Ora","Dipendente","Tipo","Origine","Tablet","Motivo correzione","Inserita il","Annullata","Annullata il","Motivo annullamento"])];
+  for(const x of att.punches.slice().sort((a,b)=>String(a.at).localeCompare(String(b.at)))){
+    if(tYMD(x.at).slice(0,7)!==ym)continue;const k=att.kiosks.find(z=>z.id===x.kiosk_id);
+    lines.push(csvLine([tYMD(x.at),tHM(x.at),(staffById(x.staff_id)||{}).name||x.staff_name,x.kind==="in"?"Entrata":"Uscita",x.source==="tablet"?"Tablet":"Correzione admin",k?k.name:"",x.reason,x.source==="admin"?tYMD(x.created_at)+" "+tHM(x.created_at):"",x.voided?"sì":"no",x.voided?tYMD(x.voided_at)+" "+tHM(x.voided_at):"",x.void_reason]));
+  }
+  downloadFile("registro-timbrature-"+ym+".csv",lines.join("\r\n"));
+}
+// ---------- Impostazioni: tablet e PIN ----------
+function viewBadgeSettings(){
+  let h='<div class="panel"><div class="hd"><h3>Badgeuse</h3></div>';
+  if(att.ready===null)return h+'<div class="empty">Caricamento…</div></div>';
+  if(att.ready===false)return h+'<div class="empty">Esegui una volta <b>supabase/aggiornamento-badgeuse.sql</b> in Supabase → SQL Editor → Run, poi ricarica.</div></div>';
+  h+='<div class="hd" style="border-top:0;padding-top:0"><span class="sub2">Tablet collegati: apri il link sul tablet del ristorante e aggiungilo alla schermata Home.</span><span class="spacer"></span>'+(readOnly?'':'<button class="btn primary" data-act="kiosk-new">Collega un tablet</button>')+'</div>';
+  h+=att.kiosks.length?att.kiosks.map(k=>'<div class="kiosk"><div><b>'+esc(k.name)+'</b> '+(k.active?'<span class="pill ok">Attivo</span>':'<span class="pill mute">Disattivato</span>')+'<div class="sub2" style="font-size:12px">'+(k.last_seen?'Ultimo contatto: '+fmtStamp(k.last_seen):'Mai usato')+'</div>'+(k.active?'<input readonly value="'+esc(badgeLink(k))+'" aria-label="Link del tablet">':'')+'</div><div class="actions">'+
+    (k.active?'<button class="btn" data-act="kiosk-copy" data-id="'+k.id+'">Copia link</button><a class="btn" href="'+esc(badgeLink(k))+'" target="_blank" rel="noopener">Apri</a>':'')+(readOnly?'':'<button class="btn" data-act="kiosk-toggle" data-id="'+k.id+'">'+(k.active?"Disattiva":"Riattiva")+'</button>')+'</div></div>').join(""):'<div class="empty">Nessun tablet collegato.</div>';
+  h+='</div><div class="panel"><div class="hd"><h3>PIN dei dipendenti</h3><span class="sub2">4 cifre, per timbrare sul tablet. Nessuno può rileggerli: se uno lo dimentica, impostane uno nuovo.</span></div><div class="gridwrap"><table class="list"><tbody>'+
+    cfg.staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<tr><td><b>'+esc(p.name)+'</b></td><td>'+(att.pins[p.id]?'<span class="pill ok">PIN impostato</span>':'<span class="pill mute">Nessun PIN</span>')+'</td><td><div class="actions">'+(readOnly?'':'<button class="btn" data-act="pin-set" data-id="'+p.id+'">'+(att.pins[p.id]?"Cambia PIN":"Imposta PIN")+'</button>'+(att.pins[p.id]?'<button class="btn" data-act="pin-del" data-id="'+p.id+'">Rimuovi</button>':''))+'</div></td></tr>').join("")+
+    '</tbody></table></div></div>';
+  return h;
+}
+function pinModal(id){
+  const p=staffById(id);if(!p)return;
+  openModal("PIN di "+p.name,'<div class="field"><label for="pin-v">Nuovo PIN (4 cifre)</label><input id="pin-v" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" style="font-family:var(--font-mono);font-size:22px;letter-spacing:.3em;max-width:160px"></div><div><button class="btn" data-act="pin-gen">Genera a caso</button></div><p class="help" style="margin:0;font-size:12px;color:var(--muted)">Comunicalo a '+esc(p.name)+' di persona: dopo il salvataggio non sarà più visibile.</p><div class="err" id="pin-err"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="pin-save" data-id="'+id+'">Salva PIN</button>');
+}
+async function pinSave(id){
+  const v=(document.getElementById("pin-v")||{}).value||"";
+  if(!/^\d{4}$/.test(v)){document.getElementById("pin-err").textContent="Il PIN deve avere esattamente 4 cifre.";return}
+  if(["0000","1111","1234","2222","3333","4444","5555","6666","7777","8888","9999","4321"].includes(v)){document.getElementById("pin-err").textContent="PIN troppo facile: scegline un altro.";return}
+  const {error}=await sb.rpc("admin_set_pin",{p_staff:id,p_pin:v});
+  if(error){console.error(error);document.getElementById("pin-err").textContent="Non riuscito, riprova.";return}
+  att.pins[id]=new Date().toISOString();const p=staffById(id);
+  openModal("PIN salvato",'<p style="margin:0">Il PIN di <b>'+esc(p?p.name:"")+'</b> è:</p><div class="bigpin">'+v+'</div><p class="help" style="margin:0;font-size:12px;color:var(--muted)">Annotalo o comunicalo ora: chiudendo questa finestra non sarà più visibile.</p>','<span class="spacer"></span><button class="btn primary" data-act="close">Fatto</button>');
+  render();
+}
+async function pinDel(id){
+  const {error}=await sb.rpc("admin_set_pin",{p_staff:id,p_pin:null});
+  if(error){toast("Non riuscito, riprova");return}
+  delete att.pins[id];render();toast("PIN rimosso");
+}
+function kioskModal(){
+  openModal("Collega un tablet",'<div class="field"><label for="ki-name">Nome del tablet</label><input id="ki-name" type="text" maxlength="40" value="Tablet '+esc(cfg.venue||"ingresso")+'"></div><div class="err" id="ki-err"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="kiosk-new-do">Crea link</button>');
+}
+async function kioskNew(){
+  const name=((document.getElementById("ki-name")||{}).value||"").trim().slice(0,40)||"Tablet";
+  const {data,error}=await sb.from("kiosks").insert({org_id:orgId,name}).select("id,name,token,active,created_at,last_seen").single();
+  if(error){console.error(error);document.getElementById("ki-err").textContent="Non riuscito, riprova.";return}
+  att.kiosks.push(data);closeModal();render();copyText(badgeLink(data));
+}
+async function kioskToggle(id){
+  const k=att.kiosks.find(z=>z.id===id);if(!k)return;
+  const {error}=await sb.from("kiosks").update({active:!k.active}).eq("id",id);
+  if(error){toast("Non riuscito, riprova");return}
+  k.active=!k.active;render();toast(k.active?"Tablet riattivato":"Tablet disattivato: non può più timbrare");
+}
 const staffLink=p=>new URL("staff.html#"+p.token,location.href).href;
 function viewLinks(){
   let h='<div class="row"><h2 class="ph">Link staff</h2></div>';
@@ -955,7 +1221,7 @@ function viewSettings(){
     '<div class="field"><label for="set-defaultPause">Pausa per ogni nuovo turno</label><select id="set-defaultPause"'+dis+'>'+[0,15,30,45,60].map(v=>'<option value="'+v+'"'+(+s.defaultPause===v?" selected":"")+'>'+(v?v+" minuti":"Nessuna pausa")+'</option>').join("")+'</select></div>'+
     (readOnly?"":'<div><button class="btn" data-act="applypause">Applica questa pausa a tutti i turni della settimana '+(+curKey().slice(6))+'</button></div>')+
     '<p class="help" style="font-size:12px;color:var(--muted);margin:0">Sono soglie di avviso, non regole legali. Verifica i valori corretti per il tuo locale con il segretariato sociale.</p>'+
-  '</div></div><div class="panel"><div class="hd"><h3>Account</h3></div><div class="form"><div class="sub2">'+esc(session&&session.user?session.user.email:"")+'</div><div><button class="btn" data-act="logout">Esci</button></div></div></div>';
+  '</div></div>'+viewBadgeSettings()+'<div class="panel"><div class="hd"><h3>Account</h3></div><div class="form"><div class="sub2">'+esc(session&&session.user?session.user.email:"")+'</div><div><button class="btn" data-act="logout">Esci</button></div></div></div>';
 }
 
 /* ---------- finestre ---------- */
@@ -1043,6 +1309,12 @@ document.addEventListener("click",e=>{
   if(act==="wa-team"){copyText(waText(cfg.staff.map(p=>p.id)));return}
   if(act==="csv"){copyText(csvText());return}
   if(act==="copylink"){const p=staffById(t.dataset.id);if(p&&p.token)copyText(staffLink(p));return}
+  if(act==="att-prev"||act==="att-next"||act==="att-now"){att.month=act==="att-now"?curMonth():shiftMonth(att.month||curMonth(),act==="att-prev"?-1:1);att.ready=null;render();return}
+  if(act==="att-refresh"){ensureAtt(true);return}
+  if(act==="att-punch"){attPunchModal(t.dataset.id);return}
+  if(act==="att-csv"){attCsv();return}
+  if(act==="att-log"){attLog();return}
+  if(act==="kiosk-copy"){const k=att.kiosks.find(z=>z.id===t.dataset.id);if(k)copyText(badgeLink(k));return}
   if(act==="forgot"){forgotPassword();return}
   if(act==="logout"){sb.auth.signOut();return}
   if(act==="togglelink"){const p=staffById(t.dataset.id);if(p){p.linkActive=p.linkActive===false;saveCfg();render();toast(p.linkActive?"Link riattivato":"Link disattivato: "+p.name+" non vede più i turni")}return}
@@ -1083,6 +1355,17 @@ document.addEventListener("click",e=>{
   if(act.startsWith("do-rqdel:")){deleteReq(act.slice(9));closeModal();return}
   if(act==="rq-new"){absenceModal();return}
   if(act==="sw-ok"){decideSwap(t.dataset.id,true,"");return}
+  if(act==="att-add"){attAddModal(t.dataset.staff||"",t.dataset.kind||"in",t.dataset.day||"");return}
+  if(act==="att-add-do"){attAddDo();return}
+  if(act==="att-void-do"){attVoidDo(t.dataset.id);return}
+  if(act==="pin-set"){pinModal(t.dataset.id);return}
+  if(act==="pin-gen"){const i=document.getElementById("pin-v");let v;do{v=String(Math.floor(Math.random()*10000)).padStart(4,"0")}while(/^(\d)\1{3}$|1234|4321/.test(v));if(i)i.value=v;return}
+  if(act==="pin-save"){pinSave(t.dataset.id);return}
+  if(act==="pin-del"){const p=staffById(t.dataset.id);confirmModal("Rimuovi PIN","Rimuovere il PIN di "+(p?p.name:"")+"? Non potrà più timbrare finché non ne imposti uno nuovo.","Rimuovi","do-pindel:"+t.dataset.id);return}
+  if(act.startsWith("do-pindel:")){pinDel(act.slice(10));closeModal();return}
+  if(act==="kiosk-new"){kioskModal();return}
+  if(act==="kiosk-new-do"){kioskNew();return}
+  if(act==="kiosk-toggle"){kioskToggle(t.dataset.id);return}
   if(act==="sw-no"){swapRejectModal(t.dataset.id);return}
   if(act==="sw-no-do"){const v=(document.getElementById("sw-reason")||{}).value||"";closeModal();decideSwap(t.dataset.id,false,v.trim());return}
   if(act==="sw-del"){const w=swaps.find(x=>x.id===t.dataset.id);confirmModal("Elimina cambio","Eliminare questo cambio dallo storico? I turni non cambiano.","Elimina","do-swdel:"+t.dataset.id);return}
@@ -1184,7 +1467,7 @@ async function start(){
   sb.auth.onAuthStateChange((ev,s)=>{
     session=s;
     if(ev==="PASSWORD_RECOVERY"){recovery=true;mode="login";render();return}
-    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};reqs=[];avail={};availWeeks={};reqReady=false;swaps=[];swapReady=false;mode="login";authMsg="";setStatus("ok","");render();return}
+    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};reqs=[];avail={};availWeeks={};reqReady=false;swaps=[];swapReady=false;att={ready:null,loading:false,month:"",punches:[],pins:{},kiosks:[],at:0};mode="login";authMsg="";setStatus("ok","");render();return}
     if((ev==="SIGNED_IN"||ev==="INITIAL_SESSION")&&s&&!orgId&&!recovery)setTimeout(start,0);
   });
   const {data}=await sb.auth.getSession();session=data.session;
