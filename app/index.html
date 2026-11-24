@@ -332,7 +332,8 @@ let readOnly=false;
 let sb=null, session=null, orgId=null, starting=false, lastLoad=0, authMsg="", recovery=false;
 let srvShifts={}, srvStaff={}, srvOrg="";
 let dayIdx=null;
-let reqs=[], avail={}, availWeeks={}, reqReady=false;   // richieste ferie/giorni liberi e disponibilità studenti
+let reqs=[], avail={}, availWeeks={}, reqReady=false;
+let swaps=[], swapReady=false;   // cambi turno tra colleghi   // richieste ferie/giorni liberi e disponibilità studenti
 const isMobile=()=>window.innerWidth<700;
 const today=new Date();
 let curMonday=mondayOf(today);
@@ -447,6 +448,12 @@ async function loadExtra(){
     availWeeks={};for(const x of w)(availWeeks[x.staff_id]=availWeeks[x.staff_id]||{})[String(x.week_start).slice(0,10)]={note:x.note||"",at:x.updated_at};
     reqReady=true;
   }catch(e){console.warn("Richieste non disponibili",e);reqs=[];avail={};availWeeks={};reqReady=false}
+  try{
+    const w=await fetchAll(()=>sb.from("shift_swaps").select("id,from_staff,to_staff,shift_id,other_shift_id,shift_day,shift_start,shift_end,other_day,other_start,other_end,note,status,admin_note,created_at,colleague_at,decided_at").eq("org_id",orgId).gte("created_at",addDays(new Date(),-180).toISOString()).order("created_at").order("id"));
+    swaps=w.map(x=>({id:x.id,from:x.from_staff,to:x.to_staff,shiftId:x.shift_id,otherId:x.other_shift_id,day:String(x.shift_day).slice(0,10),start:x.shift_start,end:x.shift_end,
+      oday:x.other_day?String(x.other_day).slice(0,10):"",ostart:x.other_start||"",oend:x.other_end||"",note:x.note||"",status:x.status,adminNote:x.admin_note||"",createdAt:x.created_at,colleagueAt:x.colleague_at,decidedAt:x.decided_at}));
+    swapReady=true;
+  }catch(e){console.warn("Cambi turno non disponibili",e);swaps=[];swapReady=false}
 }
 function setStatus(kind,text){
   const el=document.getElementById("status");
@@ -457,7 +464,7 @@ function setStatus(kind,text){
 const offOn=(staffId,ds)=>reqs.filter(r=>r.staffId===staffId&&r.status!=="rifiutata"&&r.start<=ds&&r.end>=ds).sort((a,b)=>(a.status==="approvata"?0:1)-(b.status==="approvata"?0:1));
 const availOn=(staffId,ds)=>(avail[staffId]||{})[ds]||"";
 function slotFits(slot,x){if(!slot||slot==="tutto")return true;if(slot==="no")return false;return shiftType(x)===slot}
-const pendingCount=()=>reqs.filter(r=>r.status==="attesa"&&staffById(r.staffId)).length;
+const pendingCount=()=>reqs.filter(r=>r.status==="attesa"&&staffById(r.staffId)).length+swaps.filter(w=>w.status==="attesa_admin"&&staffById(w.from)&&staffById(w.to)).length;
 const dayCount=(a,b)=>Math.round((parseYmd(b)-parseYmd(a))/86400000)+1;
 const fmtDayW=d=>DAYS[(d.getDay()+6)%7]+" "+fmtDay(d);
 function fmtRange(a,b){return a===b?fmtDayW(parseYmd(a)):fmtDayW(parseYmd(a))+" – "+fmtDayW(parseYmd(b))}
@@ -755,12 +762,65 @@ function reqRow(r,pending){
     '<div class="stale" style="font-size:12px;color:var(--muted)">'+(r.createdAt?'Chiesta il '+fmtStamp(r.createdAt):'')+(r.decidedAt&&!pending?' · decisa il '+fmtStamp(r.decidedAt):'')+'</div></div>'+
     '<div class="actions">'+btn+'</div></div>';
 }
+function findShift(id){
+  for(const k in weeks){const x=(weeks[k]||[]).find(y=>y.id===id);if(x)return {k,x,day:ymd(addDays(mondayFromKey(k),x.day))}}
+  return null;
+}
+function shiftsOfOn(staffId,ds,skip){const out=[];for(const k in weeks){const mo=mondayFromKey(k);if(!mo)continue;for(const x of weeks[k])if(x.staffId===staffId&&x.id!==skip&&ymd(addDays(mo,x.day))===ds)out.push(x)}return out}
+function overlapping(list,a,b){const x0=toMin(a),x1=x0+shiftMinutes({start:a,end:b});return list.filter(y=>{const y0=toMin(y.start),y1=y0+shiftMinutes(y);return y0<x1&&y1>x0})}
+// controlli prima di approvare: chi riceve un turno è libero, presente, disponibile? i turni sono ancora quelli?
+function swapWarnings(w){
+  const out=[],A=staffById(w.from),B=staffById(w.to);if(!A||!B)return out;
+  const check=(p,ds,a,b,skip)=>{
+    const ov=overlapping(shiftsOfOn(p.id,ds,skip),a,b);if(ov.length)out.push(p.name+" ha già un turno che si sovrappone il "+fmtDayW(parseYmd(ds))+" ("+ov.map(y=>y.start+"–"+y.end).join(", ")+")");
+    for(const r of offOn(p.id,ds))out.push(p.name+(r.status==="approvata"?" è in ":" ha chiesto ")+(r.kind==="ferie"?"ferie":"un giorno libero")+" il "+fmtDayW(parseYmd(ds))+(r.status==="approvata"?"":" (in attesa)"));
+    if(p.status==="studente"){const sl=availOn(p.id,ds);if(sl&&!slotFits(sl,{start:a,end:b}))out.push(p.name+(sl==="no"?" ha detto di non essere disponibile":" è disponibile solo a "+(sl==="pranzo"?"pranzo":"cena"))+" il "+fmtDayW(parseYmd(ds)))}
+  };
+  if(w.status==="attesa_admin"||w.status==="attesa_collega"){
+    const s1=findShift(w.shiftId);
+    if(!s1||s1.x.staffId!==w.from||s1.x.start!==w.start||s1.x.end!==w.end||s1.day!==w.day)out.push("Il turno di "+A.name+" è stato modificato o eliminato nel frattempo");
+    if(w.oday){const s2=findShift(w.otherId);if(!s2||s2.x.staffId!==w.to||s2.x.start!==w.ostart||s2.x.end!==w.oend||s2.day!==w.oday)out.push("Il turno di "+B.name+" è stato modificato o eliminato nel frattempo")}
+    check(B,w.day,w.start,w.end,w.otherId);
+    if(w.oday)check(A,w.oday,w.ostart,w.oend,w.shiftId);
+  }
+  return out;
+}
+const SWST={attesa_collega:["Attende il collega","mute"],rifiutata_collega:["Rifiutato dal collega","mute"],attesa_admin:["Da approvare","warn"],approvata:["Approvato","ok"],rifiutata:["Rifiutato","crit"],annullata:["Annullato","mute"]};
+function swapRow(w,mode){
+  const A=staffById(w.from),B=staffById(w.to),st=SWST[w.status]||["",""];
+  const ws=mode==="pending"?swapWarnings(w):[];
+  const btn=readOnly?"":mode==="pending"?'<button class="btn primary" data-act="sw-ok" data-id="'+w.id+'">Approva</button><button class="btn" data-act="sw-no" data-id="'+w.id+'">Rifiuta</button>':
+    mode==="done"?'<button class="btn danger" data-act="sw-del" data-id="'+w.id+'">Elimina</button>':"";
+  return '<div class="rq"><div class="rq-main"><div><span class="who"><span class="roledot" style="background:var(--'+A.role+')"></span>'+esc(A.name)+(w.oday?" ⇄ ":" → ")+esc(B.name)+'</span> · <b>'+(w.oday?"Scambio":"Cessione")+'</b> '+(mode==="pending"?"":'<span class="pill '+st[1]+'">'+st[0]+'</span>')+'</div>'+
+    '<div class="num">'+esc(B.name)+' prende: '+fmtDayW(parseYmd(w.day))+' <span class="mono">'+esc(w.start)+'–'+esc(w.end)+'</span></div>'+
+    (w.oday?'<div class="num">'+esc(A.name)+' prende: '+fmtDayW(parseYmd(w.oday))+' <span class="mono">'+esc(w.ostart)+'–'+esc(w.oend)+'</span></div>':'')+
+    (w.note?'<div class="sub2">«'+esc(w.note)+'»</div>':'')+(w.adminNote?'<div class="sub2"><b>Tua risposta:</b> '+esc(w.adminNote)+'</div>':'')+
+    ws.map(x=>'<div class="rq-warn">'+esc(x)+'</div>').join("")+
+    '<div style="font-size:12px;color:var(--muted)">Chiesto il '+fmtStamp(w.createdAt)+(w.colleagueAt&&w.status!=="attesa_collega"?(w.status==="rifiutata_collega"?' · rifiutato da ':' · accettato da ')+esc(B.name)+' il '+fmtStamp(w.colleagueAt):'')+(w.decidedAt?' · deciso il '+fmtStamp(w.decidedAt):'')+'</div></div>'+
+    '<div class="actions">'+btn+'</div></div>';
+}
+function viewSwapsAdmin(){
+  if(!swapReady)return '<div class="panel"><div class="hd"><h3>Cambi turno</h3></div><div class="empty">Per usare i cambi turno esegui una volta il file <b>supabase/aggiornamento-cambi.sql</b> in Supabase → SQL Editor → Run, poi ricarica questa pagina.</div></div>';
+  const ok=swaps.filter(w=>staffById(w.from)&&staffById(w.to));
+  const pend=ok.filter(w=>w.status==="attesa_admin").sort((a,b)=>a.day.localeCompare(b.day));
+  const wait=ok.filter(w=>w.status==="attesa_collega").sort((a,b)=>a.day.localeCompare(b.day));
+  let h='<div class="panel"><div class="hd"><h3>Cambi turno da approvare</h3>'+(pend.length?'<span class="cnt">'+pend.length+'</span>':'')+'</div>'+(pend.length?pend.map(w=>swapRow(w,"pending")).join(""):'<div class="empty">Nessun cambio da approvare.</div>')+
+    (wait.length?'<div class="hd" style="border-top:1px solid var(--line)"><h3 style="font-size:16px">In attesa che il collega accetti</h3></div>'+wait.map(w=>swapRow(w,"wait")).join(""):'')+'</div>';
+  return h;
+}
+function viewSwapsHistory(){
+  if(!swapReady)return "";
+  const lim=addDays(new Date(),-60).toISOString();
+  const done=swaps.filter(w=>staffById(w.from)&&staffById(w.to)&&!["attesa_admin","attesa_collega"].includes(w.status)&&String(w.decidedAt||w.colleagueAt||w.createdAt)>=lim).sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  return '<div class="panel"><div class="hd"><h3>Storico cambi turno</h3><span class="sub2">ultimi 60 giorni</span></div>'+(done.length?done.map(w=>swapRow(w,"done")).join(""):'<div class="empty">Ancora niente qui.</div>')+'</div>';
+}
 function viewRichieste(){
   let h='<div class="row"><h2 class="ph">Richieste</h2><span class="spacer"></span>'+(readOnly||!reqReady?'':'<button class="btn primary" data-act="rq-new">Aggiungi assenza</button>')+'</div>';
-  if(!reqReady)return h+'<div class="panel"><div class="empty">Per usare ferie, giorni liberi e disponibilità serve un aggiornamento del database:<br>esegui una volta il file <b>supabase/aggiornamento-richieste.sql</b> in Supabase → SQL Editor → Run, poi ricarica questa pagina.</div></div>';
+  if(!reqReady)return h+viewSwapsAdmin()+'<div class="panel"><div class="empty">Per usare ferie, giorni liberi e disponibilità serve un aggiornamento del database:<br>esegui una volta il file <b>supabase/aggiornamento-richieste.sql</b> in Supabase → SQL Editor → Run, poi ricarica questa pagina.</div></div>'+viewSwapsHistory();
   const mine=reqs.filter(r=>staffById(r.staffId));
   const pend=mine.filter(r=>r.status==="attesa").sort((a,b)=>a.start.localeCompare(b.start));
-  h+='<div class="panel"><div class="hd"><h3>Da approvare</h3>'+(pend.length?'<span class="cnt">'+pend.length+'</span>':'')+'</div>'+(pend.length?pend.map(r=>reqRow(r,true)).join(""):'<div class="empty">Nessuna richiesta in attesa.</div>')+'</div>';
+  h+='<div class="panel"><div class="hd"><h3>Ferie e giorni liberi da approvare</h3>'+(pend.length?'<span class="cnt">'+pend.length+'</span>':'')+'</div>'+(pend.length?pend.map(r=>reqRow(r,true)).join(""):'<div class="empty">Nessuna richiesta in attesa.</div>')+'</div>';
+  h+=viewSwapsAdmin();
   // disponibilità studenti della settimana mostrata
   const studs=cfg.staff.filter(p=>p.status==="studente"),mk=ymd(curMonday);
   h+='<div class="row">'+weekHeader()+'</div>';
@@ -773,6 +833,7 @@ function viewRichieste(){
   const lim=ymd(addDays(new Date(),-60));
   const done=mine.filter(r=>r.status!=="attesa"&&r.end>=lim).sort((a,b)=>a.start.localeCompare(b.start));
   h+='<div class="panel"><div class="hd"><h3>Assenze approvate e rifiutate</h3><span class="sub2">dagli ultimi 60 giorni</span></div>'+(done.length?done.map(r=>reqRow(r,false)).join(""):'<div class="empty">Ancora niente qui.</div>')+'</div>';
+  h+=viewSwapsHistory();
   return h;
 }
 function rejectModal(id){
@@ -810,6 +871,38 @@ async function addAbsence(){
   if(error){console.error(error);err("Salvataggio non riuscito, riprova.");return}
   reqs.push({id:data.id,staffId:row.staff_id,kind:row.kind,start:row.start_day,end:row.end_day,note:row.note,status:"approvata",adminNote:"",createdAt:data.created_at,decidedAt:row.decided_at});
   closeModal();render();toast("Assenza aggiunta");
+}
+function swapRejectModal(id){
+  const w=swaps.find(x=>x.id===id),A=w&&staffById(w.from),B=w&&staffById(w.to);if(!w||!A||!B)return;
+  openModal("Rifiuta cambio",'<p style="margin:0">'+esc(A.name)+(w.oday?" ⇄ ":" → ")+esc(B.name)+' · '+fmtDayW(parseYmd(w.day))+' '+esc(w.start)+'–'+esc(w.end)+'</p><div class="field"><label for="sw-reason">Motivo (facoltativo, lo vedono entrambi)</label><input id="sw-reason" type="text" maxlength="200" placeholder="es. serve più esperienza quella sera"></div>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="sw-no-do" data-id="'+id+'">Rifiuta</button>');
+}
+async function decideSwap(id,approve,note){
+  const w=swaps.find(x=>x.id===id);if(!w)return;
+  setStatus("warn","Salvataggio…");
+  while(pending())await new Promise(r=>setTimeout(r,120));   // prima salva eventuali modifiche al planning
+  const {error}=await sb.rpc("admin_swap_decide",{p_id:id,p_approve:approve,p_note:note||""});
+  if(error){
+    console.error(error);setStatus("ok","Tutto salvato");
+    const m=String(error.message||"");
+    toast(/turni cambiati/.test(m)?"I turni sono cambiati nel frattempo: rifiuta il cambio":/non in attesa/.test(m)?"Il cambio non è più in attesa: ricarica":"Non riuscito, riprova");
+    return;
+  }
+  const now=new Date().toISOString();
+  if(approve){
+    // aggiorna subito il planning in locale, come ha fatto il database
+    const mv=(sid,to)=>{const f=findShift(sid);if(f){f.x.staffId=to;srvShifts[sid]=JSON.stringify(shiftRow(f.k,f.x))}};
+    mv(w.shiftId,w.to);if(w.oday&&w.otherId)mv(w.otherId,w.from);
+    const ids=[w.shiftId,w.otherId].filter(Boolean);
+    swaps.forEach(o=>{if(o.id!==id&&["attesa_collega","attesa_admin"].includes(o.status)&&(ids.includes(o.shiftId)||ids.includes(o.otherId)))o.status="annullata"});
+  }
+  Object.assign(w,{status:approve?"approvata":"rifiutata",adminNote:(note||"").slice(0,200),decidedAt:now});
+  setStatus("ok","Tutto salvato");render();toast(approve?"Cambio approvato: planning aggiornato":"Cambio rifiutato");
+}
+async function deleteSwap(id){
+  const {error}=await sb.from("shift_swaps").delete().eq("id",id);
+  if(error){console.error(error);toast("Non riuscito, riprova");return}
+  swaps=swaps.filter(x=>x.id!==id);render();toast("Cambio eliminato dallo storico");
 }
 async function deleteReq(id){
   const {error}=await sb.from("time_off").delete().eq("id",id);
@@ -989,6 +1082,11 @@ document.addEventListener("click",e=>{
   if(act==="rq-del"){const r=reqs.find(x=>x.id===t.dataset.id),p=r&&staffById(r.staffId);confirmModal("Elimina richiesta","Eliminare definitivamente "+(r?KINDS[r.kind].toLowerCase():"la richiesta")+(p?" di "+p.name:"")+"?","Elimina","do-rqdel:"+t.dataset.id);return}
   if(act.startsWith("do-rqdel:")){deleteReq(act.slice(9));closeModal();return}
   if(act==="rq-new"){absenceModal();return}
+  if(act==="sw-ok"){decideSwap(t.dataset.id,true,"");return}
+  if(act==="sw-no"){swapRejectModal(t.dataset.id);return}
+  if(act==="sw-no-do"){const v=(document.getElementById("sw-reason")||{}).value||"";closeModal();decideSwap(t.dataset.id,false,v.trim());return}
+  if(act==="sw-del"){const w=swaps.find(x=>x.id===t.dataset.id);confirmModal("Elimina cambio","Eliminare questo cambio dallo storico? I turni non cambiano.","Elimina","do-swdel:"+t.dataset.id);return}
+  if(act.startsWith("do-swdel:")){deleteSwap(act.slice(9));closeModal();return}
   if(act==="rq-add"){addAbsence();return}
   if(act==="newstaff"){staffModal(null,t.dataset.status);return}
   if(act==="editstaff"){staffModal(staffById(t.dataset.id));return}
@@ -1086,7 +1184,7 @@ async function start(){
   sb.auth.onAuthStateChange((ev,s)=>{
     session=s;
     if(ev==="PASSWORD_RECOVERY"){recovery=true;mode="login";render();return}
-    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};reqs=[];avail={};availWeeks={};reqReady=false;mode="login";authMsg="";setStatus("ok","");render();return}
+    if(ev==="SIGNED_OUT"){orgId=null;cfg={venue:"",staff:[],settings:{...DEFAULT_SETTINGS}};weeks={};reqs=[];avail={};availWeeks={};reqReady=false;swaps=[];swapReady=false;mode="login";authMsg="";setStatus("ok","");render();return}
     if((ev==="SIGNED_IN"||ev==="INITIAL_SESSION")&&s&&!orgId&&!recovery)setTimeout(start,0);
   });
   const {data}=await sb.auth.getSession();session=data.session;

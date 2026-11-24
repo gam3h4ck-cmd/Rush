@@ -113,3 +113,18 @@ Cosa cambia:
 - **Planning**: ogni casella mostra ferie, giorni liberi e disponibilità. Se metti un turno a chi è in ferie la casella diventa rossa; se la richiesta è in attesa o il turno è fuori dalla disponibilità dello studente diventa gialla. Il turno si può comunque salvare.
 
 Se pubblichi l'app prima di aver fatto il passo 2, tutto il resto continua a funzionare: la scheda Richieste ti ricorda di eseguire il file.
+
+---
+
+## Aggiornamento: cambi turno tra colleghi
+
+Da fare **una sola volta**: in Supabase apri **SQL Editor → New query**, incolla tutto il file `supabase/aggiornamento-cambi.sql` e premi **Run** ("Success. No rows returned"). Rilanciarlo non cancella niente.
+
+Come funziona:
+1. Il dipendente, dal suo link, apre **Cambi** e sceglie uno dei suoi turni delle prossime 6 settimane e un collega **dello stesso reparto**. Poi sceglie se **cedergli il turno** o fare uno **scambio** con un turno del collega.
+2. Il collega trova la richiesta in **Cambi → Richieste per te** e preme **Accetta** o **Rifiuta**.
+3. Se accetta, la richiesta arriva a te in **Richieste → Cambi turno da approvare**, con gli avvisi utili: sovrapposizioni con altri turni, ferie, disponibilità degli studenti, turni modificati nel frattempo.
+4. Premi **Approva** e i turni si spostano da soli nel planning, oppure **Rifiuta** con un motivo che vedono entrambi.
+
+Chi ha chiesto può annullare finché non hai deciso. Se nel frattempo modifichi o elimini uno dei turni coinvolti, l'approvazione viene bloccata per sicurezza: rifiuta il cambio e fanne fare uno nuovo.
+

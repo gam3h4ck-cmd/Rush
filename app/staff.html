@@ -322,6 +322,9 @@ let portal=null, portalOk=false;          // richieste e disponibilità (null se
 let view="turni";                         // turni | richieste | disp
 let reqForm={kind:"ferie",start:"",end:"",note:""}, reqMsg="", reqErr="", sending=false;
 let drafts={}, dispMsg="", dispErr="", saving=false;
+let swap=null, swapOk=false;              // cambi turno (null se il database non è aggiornato)
+let swForm={shift:"",to:"",mode:"cessione",other:"",note:""}, swMsg="", swErr="", swSending=false;
+const SW_OPEN=["attesa_collega","attesa_admin"];
 const KINDS={ferie:"Ferie",libero:"Giorno libero"};
 const RSTATUS={attesa:["In attesa","warn"],approvata:["Approvata","ok"],rifiutata:["Rifiutata","crit"]};
 const SLOTS={tutto:"Tutto il giorno",pranzo:"Solo pranzo",cena:"Solo cena",no:"Non disponibile"};
@@ -361,6 +364,16 @@ async function fetchPortal(){
     portal=c;portalOk=!!c;
   }
 }
+async function fetchSwap(){
+  try{
+    const {data,error}=await sb.rpc("staff_swap_data",{p_token:token});
+    if(error)throw error;
+    swap=data;swapOk=!!data;store.set("rush-staff-swap:"+token,JSON.stringify(data));
+  }catch(e){
+    const c=JSON.parse(store.get("rush-staff-swap:"+token)||"null");
+    swap=c;swapOk=!!c;
+  }
+}
 let first=true;
 async function load(){
   try{
@@ -375,8 +388,9 @@ async function load(){
     if(!c){msg("Impossibile caricare i turni. Controlla la connessione e riprova.");return}
     week=c.w;upcoming=c.u;offline=true;
   }
-  await fetchPortal();
-  if(view!=="turni"&&!portalOk)view="turni";
+  await Promise.all([fetchPortal(),fetchSwap()]);
+  if((view==="richieste"||view==="disp")&&!portalOk)view="turni";
+  if(view==="cambi"&&!swapOk)view="turni";
   if(view==="disp"&&!isStudent())view="turni";
   render();
 }
@@ -402,14 +416,16 @@ function render(){
   let h='<div class="hello"><div class="sub2">Ciao</div><h2 class="ph">'+esc(week.name)+'</h2></div>';
   h+='<div class="tiles"><div class="tile"><div class="lbl">Prossimo turno</div><div class="val num" style="font-size:24px">'+(nx?DAYS[(nx.d.getDay()+6)%7]+" "+fmtDay(nx.d):"—")+'</div><div class="hint mono">'+(nx?esc(nx.x.start)+"–"+esc(nx.x.end):"Nessun turno in programma")+'</div></div>'+
      '<div class="tile"><div class="lbl">Ore settimana '+isoWeek(monday)+'</div><div class="val num">'+hrs(tot)+'</div><div class="hint">'+list.length+' turni</div></div></div>';
-  if(portalOk){
-    const pend=portal.requests.filter(r=>r.status==="attesa").length;
-    const tabs=[["turni","Turni"],["richieste","Ferie e giorni liberi"+(pend?' <span class="cnt">'+pend+'</span>':"")]];
+  if(portalOk||swapOk){
+    const tabs=[["turni","Turni"]];
+    if(portalOk){const pend=portal.requests.filter(r=>r.status==="attesa").length;tabs.push(["richieste","Ferie"+(pend?' <span class="cnt">'+pend+'</span>':"")])}
+    if(swapOk){const inc=swap.swaps.filter(w=>!w.mine&&w.status==="attesa_collega").length;tabs.push(["cambi","Cambi"+(inc?' <span class="cnt">'+inc+'</span>':"")])}
     if(isStudent())tabs.push(["disp","Disponibilità"]);
     h+='<div class="seg" role="tablist" aria-label="Sezioni">'+tabs.map(([k,l])=>'<button role="tab" aria-selected="'+(view===k)+'" class="'+(view===k?"on":"")+'" data-act="view" data-v="'+k+'">'+l+'</button>').join("")+'</div>';
   }
   if(view==="richieste")h+=viewRequests();
   else if(view==="disp")h+=viewDisp();
+  else if(view==="cambi")h+=viewSwaps();
   else h+=viewShifts(list);
   document.getElementById("main").innerHTML=h;
 }
@@ -509,6 +525,86 @@ async function saveDisp(){
   }catch(e){dispErr=errText(e)}
   saving=false;render();
 }
+const fmtShift=(d,a,b)=>d?fmtDayW(parseYmd(String(d).slice(0,10)))+' <span class="mono">'+esc(a)+'–'+esc(b)+'</span>':"";
+function overlaps(list,day,a,b,skipId){
+  const x0=toMin(a),x1=x0+shiftMinutes({start:a,end:b});
+  return list.filter(y=>y.id!==skipId&&String(y.day).slice(0,10)===String(day).slice(0,10)).filter(y=>{const y0=toMin(y.start),y1=y0+shiftMinutes(y);return y0<x1&&y1>x0});
+}
+function swapStatus(w){
+  if(w.status==="attesa_collega")return w.mine?["In attesa di "+w.to_name,"warn"]:["Da rispondere","warn"];
+  if(w.status==="rifiutata_collega")return w.mine?["Rifiutato da "+w.to_name,"crit"]:["Hai rifiutato","mute"];
+  if(w.status==="attesa_admin")return ["In attesa del responsabile","warn"];
+  if(w.status==="approvata")return ["Approvato","ok"];
+  if(w.status==="rifiutata")return ["Rifiutato dal responsabile","crit"];
+  return ["Annullato","mute"];
+}
+function swapText(w){
+  const a=fmtShift(w.shift_day,w.shift_start,w.shift_end),b=fmtShift(w.other_day,w.other_start,w.other_end);
+  if(w.mine)return w.other_day?'Scambio con <b>'+esc(w.to_name)+'</b>: lui/lei fa il tuo turno '+a+', tu fai il suo '+b:'Cedi a <b>'+esc(w.to_name)+'</b> il turno '+a;
+  return w.other_day?'<b>'+esc(w.from_name)+'</b> ti propone uno scambio: tu fai il suo turno '+a+', lui/lei fa il tuo '+b:'<b>'+esc(w.from_name)+'</b> ti chiede di prendere il suo turno '+a;
+}
+function viewSwaps(){
+  const f=swForm,my=swap.my_shifts,cols=swap.colleagues;
+  const locked=new Set(swap.swaps.filter(w=>SW_OPEN.includes(w.status)).flatMap(w=>[w.shift_id,w.other_shift_id]).filter(Boolean));
+  let h=(swErr||swMsg)?'<div class="'+(swErr?"err":"okmsg")+'" role="status" style="padding:0 4px">'+esc(swErr||swMsg)+'</div>':'';
+  const inc=swap.swaps.filter(w=>!w.mine&&w.status==="attesa_collega");
+  if(inc.length)h+='<div class="panel"><div class="hd"><h3>Richieste per te</h3><span class="cnt">'+inc.length+'</span></div>'+inc.map(w=>
+    '<div class="req"><div class="req-main"><div>'+swapText(w)+'</div>'+(w.note?'<div class="sub2">«'+esc(w.note)+'»</div>':"")+'<div class="stale">Chiesta il '+fmtStamp(w.created_at)+'</div></div>'+
+    (offline?"":'<div class="actions" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" data-act="swyes" data-id="'+esc(w.id)+'">Accetta</button><button class="btn" data-act="swno" data-id="'+esc(w.id)+'">Rifiuta</button></div>')+'</div>').join("")+'</div>';
+  h+='<div class="panel"><div class="hd"><h3>Chiedi un cambio</h3></div>';
+  if(!my.length)h+='<div class="empty">Non hai turni nelle prossime 6 settimane.</div>';
+  else if(!cols.length)h+='<div class="empty">Nessun collega del tuo reparto ha un link attivo.</div>';
+  else{
+    const col=cols.find(c=>c.id===f.to),sh=my.find(x=>x.id===f.shift);
+    let warn="";
+    if(sh&&col&&f.mode==="cessione"){const ov=overlaps(col.shifts,sh.day,sh.start,sh.end);if(ov.length)warn=esc(col.name)+" ha già un turno che si sovrappone ("+ov.map(y=>esc(y.start)+"–"+esc(y.end)).join(", ")+").";}
+    if(sh&&col&&f.mode==="scambio"&&f.other){const o=col.shifts.find(x=>x.id===f.other);if(o){const ov=overlaps(my,o.day,o.start,o.end,sh.id);if(ov.length)warn="Quel giorno hai già un turno che si sovrappone ("+ov.map(y=>esc(y.start)+"–"+esc(y.end)).join(", ")+").";}}
+    h+='<form class="form" id="swform" autocomplete="off" novalidate>'+
+      '<div class="field"><label for="sw-shift">Il tuo turno</label><select id="sw-shift"><option value="">Scegli…</option>'+my.map(x=>{const lock=locked.has(x.id);return '<option value="'+esc(x.id)+'"'+(f.shift===x.id?" selected":"")+(lock?" disabled":"")+'>'+DAYS[(parseYmd(String(x.day).slice(0,10)).getDay()+6)%7]+" "+fmtDay(parseYmd(String(x.day).slice(0,10)))+" · "+esc(x.start)+"–"+esc(x.end)+(lock?" (cambio in corso)":"")+'</option>'}).join("")+'</select></div>'+
+      '<div class="field"><label for="sw-to">Collega</label><select id="sw-to"><option value="">Scegli…</option>'+cols.map(c=>'<option value="'+esc(c.id)+'"'+(f.to===c.id?" selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select><span class="help">Solo colleghi del tuo reparto</span></div>'+
+      '<div class="field"><span class="flabel">Tipo di cambio</span><div class="seg small" role="radiogroup" aria-label="Tipo di cambio"><button type="button" role="radio" aria-checked="'+(f.mode==="cessione")+'" class="'+(f.mode==="cessione"?"on":"")+'" data-act="swmode" data-v="cessione">Gli cedo il turno</button><button type="button" role="radio" aria-checked="'+(f.mode==="scambio")+'" class="'+(f.mode==="scambio"?"on":"")+'" data-act="swmode" data-v="scambio">Scambio</button></div></div>'+
+      (f.mode==="scambio"?'<div class="field"><label for="sw-other">In cambio prendo il suo turno</label>'+(col?(col.shifts.length?'<select id="sw-other"><option value="">Scegli…</option>'+col.shifts.map(x=>'<option value="'+esc(x.id)+'"'+(f.other===x.id?" selected":"")+'>'+DAYS[(parseYmd(String(x.day).slice(0,10)).getDay()+6)%7]+" "+fmtDay(parseYmd(String(x.day).slice(0,10)))+" · "+esc(x.start)+"–"+esc(x.end)+'</option>').join("")+'</select>':'<div class="sub2">'+esc(col.name)+' non ha turni nelle prossime 6 settimane: puoi solo cedergli il tuo.</div>'):'<div class="sub2">Scegli prima il collega.</div>')+'</div>':'')+
+      '<div class="field"><label for="sw-note">Messaggio (facoltativo)</label><input id="sw-note" type="text" maxlength="200" placeholder="es. ho un esame, grazie!" value="'+esc(f.note)+'"></div>'+
+      (warn?'<div class="err" style="color:var(--warn)">Attenzione: '+warn+'</div>':"")+
+      '<div><button class="btn primary" type="submit"'+(swSending||offline?" disabled":"")+'>'+(swSending?"Invio…":"Invia richiesta")+'</button></div>'+
+      '<div class="sub2" style="font-size:12px">Il collega deve accettare, poi il responsabile approva e il planning si aggiorna da solo.</div></form>';
+  }
+  h+='</div>';
+  const rest=swap.swaps.filter(w=>w.mine||w.status!=="attesa_collega");
+  h+='<div class="panel"><div class="hd"><h3>I tuoi cambi</h3></div>'+(rest.length?rest.map(w=>{const st=swapStatus(w);
+    return '<div class="req"><div class="req-main"><div><span class="pill '+st[1]+'">'+esc(st[0])+'</span></div><div>'+swapText(w)+'</div>'+(w.note?'<div class="sub2">«'+esc(w.note)+'»</div>':"")+(w.admin_note?'<div class="sub2"><b>Risposta:</b> '+esc(w.admin_note)+'</div>':"")+'<div class="stale">Chiesto il '+fmtStamp(w.created_at)+'</div></div>'+
+      (w.mine&&SW_OPEN.includes(w.status)&&!offline?'<button class="btn" data-act="swcancel" data-id="'+esc(w.id)+'">Annulla</button>':"")+'</div>'}).join(""):'<div class="empty">Nessun cambio ancora.</div>')+'</div>';
+  return h;
+}
+function swapErrText(e){const m=String((e&&e.message)||"");
+  if(/passato/.test(m))return "Il turno è già passato.";
+  if(/già in corso/.test(m))return "C'è già un cambio in corso per uno di questi turni.";
+  if(/reparto/.test(m))return "Puoi fare cambi solo con colleghi del tuo reparto.";
+  if(/non trovato/.test(m))return "Il turno non esiste più: ricarica la pagina.";
+  if(/collega/.test(m))return "Collega non valido.";
+  if(/troppe/.test(m))return "Hai già troppe richieste di cambio aperte.";
+  if(/link/.test(m))return "Il tuo link non è più valido: chiedi un nuovo link al tuo responsabile.";
+  return "Invio non riuscito. Controlla la connessione e riprova.";}
+async function sendSwap(){
+  const f=swForm;swErr="";swMsg="";
+  if(!f.shift){swErr="Scegli il tuo turno.";render();return}
+  if(!f.to){swErr="Scegli il collega.";render();return}
+  if(f.mode==="scambio"&&!f.other){swErr="Scegli il turno del collega che prendi in cambio.";render();return}
+  swSending=true;render();
+  try{
+    const {error}=await sb.rpc("staff_swap_create",{p_token:token,p_shift:f.shift,p_to_staff:f.to,p_other_shift:f.mode==="scambio"?f.other:null,p_note:f.note.trim()});
+    if(error)throw error;
+    swForm={shift:"",to:"",mode:f.mode,other:"",note:""};swMsg="Richiesta inviata: ora deve accettare il collega.";
+    await fetchSwap();
+  }catch(e){swErr=swapErrText(e)}
+  swSending=false;render();
+}
+async function swapAction(fn,args,okText,ask){
+  if(ask&&!confirm(ask))return;
+  try{const {data,error}=await sb.rpc(fn,{p_token:token,...args});if(error)throw error;swMsg=data===false?"La richiesta è già cambiata: aggiornata.":okText;swErr=""}
+  catch(e){swErr=swapErrText(e);swMsg=""}
+  await fetchSwap();render();
+}
 function anyDirty(){return Object.values(drafts).some(d=>d.dirty)}
 document.addEventListener("click",e=>{
   const t=e.target.closest("[data-act]");if(!t)return;
@@ -518,7 +614,7 @@ document.addEventListener("click",e=>{
     if(act==="prev")monday=addDays(monday,-7);else if(act==="next")monday=addDays(monday,7);else monday=mondayOf(new Date());
     drafts={};dispMsg="";dispErr="";msg("Caricamento…");load();return;
   }
-  if(act==="view"){view=t.dataset.v;reqMsg="";reqErr="";dispMsg="";dispErr="";render();return}
+  if(act==="view"){view=t.dataset.v;reqMsg="";reqErr="";dispMsg="";dispErr="";swMsg="";swErr="";render();return}
   if(act==="kind"){reqForm.kind=t.dataset.v;render();return}
   if(act==="cancelreq"){cancelRequest(t.dataset.id);return}
   if(act==="slot"){const dr=weekDisp(monday),d=+t.dataset.d;const n=document.getElementById("dp-note");if(n)dr.note=n.value;dr.slots[d]=dr.slots[d]===t.dataset.v?"":t.dataset.v;dr.dirty=true;dispMsg="";render();return}
@@ -527,18 +623,26 @@ document.addEventListener("click",e=>{
     if(!pv.slots.some(Boolean)){dispErr="La settimana prima non hai indicato la disponibilità.";dispMsg="";render();return}
     dr.slots=pv.slots.slice();dr.dirty=true;dispErr="";dispMsg="";render();return}
   if(act==="savedisp"){saveDisp();return}
+  if(act==="swmode"){swForm.mode=t.dataset.v;if(swForm.mode==="cessione")swForm.other="";render();return}
+  if(act==="swyes"){swapAction("staff_swap_respond",{p_id:t.dataset.id,p_accept:true},"Hai accettato: ora decide il responsabile.");return}
+  if(act==="swno"){swapAction("staff_swap_respond",{p_id:t.dataset.id,p_accept:false},"Hai rifiutato il cambio.","Rifiutare questo cambio?");return}
+  if(act==="swcancel"){swapAction("staff_swap_cancel",{p_id:t.dataset.id},"Richiesta annullata.","Annullare questa richiesta di cambio?");return}
 });
 function onField(e){
   const t=e.target;
   if(t.id==="rq-start"){reqForm.start=t.value;const en=document.getElementById("rq-end");if(en){en.min=t.value||ymd(today);if(reqForm.end&&reqForm.end<t.value){reqForm.end="";en.value=""}}}
   else if(t.id==="rq-end")reqForm.end=t.value;
   else if(t.id==="rq-note")reqForm.note=t.value;
+  else if(t.id==="sw-shift"){if(swForm.shift!==t.value){swForm.shift=t.value;render()}}
+  else if(t.id==="sw-to"){if(swForm.to!==t.value){swForm.to=t.value;swForm.other="";render()}}
+  else if(t.id==="sw-other"){if(swForm.other!==t.value){swForm.other=t.value;render()}}
+  else if(t.id==="sw-note")swForm.note=t.value;
   else if(t.id==="dp-note"){const dr=weekDisp(monday);if(dr.note!==t.value){dr.note=t.value;dr.dirty=true}}
 }
 document.addEventListener("input",onField);
 document.addEventListener("change",onField);
-document.addEventListener("submit",e=>{if(e.target.id==="reqform"){e.preventDefault();if(!sending)sendRequest()}});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&sb&&token&&!sending&&!saving&&!anyDirty())load()});
+document.addEventListener("submit",e=>{if(e.target.id==="reqform"){e.preventDefault();if(!sending)sendRequest()}if(e.target.id==="swform"){e.preventDefault();if(!swSending)sendSwap()}});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&sb&&token&&!sending&&!saving&&!swSending&&!anyDirty())load()});
 window.addEventListener("hashchange",()=>location.reload());
 (function(){
   const C=window.RUSH_CONFIG||{};
