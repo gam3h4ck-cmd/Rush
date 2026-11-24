@@ -136,7 +136,8 @@ Chi ha chiesto può annullare finché non hai deciso. Se nel frattempo modifichi
 
 **2. Collega il tablet del ristorante.**
 - In Rush vai su **Impostazioni → Badgeuse → Collega un tablet**: il link viene creato e copiato.
-- Mandalo al tablet (email o WhatsApp) e aprilo con **Chrome**.
+- Mandalo al tablet (email o WhatsApp) e aprilo con **Chrome**. **Aprilo solo sul tablet**: il primo dispositivo che apre il link resta collegato e il link non funziona su nessun altro telefono o computer.
+- Se cambi tablet, o se sul tablet vengono cancellati i dati di Chrome, premi **Scollega tablet** e riapri il link sul tablet giusto.
 - Nel menu ⋮ di Chrome scegli **Aggiungi a schermata Home** (o **Installa app**): la badgeuse si apre a schermo intero.
 - Consigliato: in Impostazioni Android attiva **Blocco su schermo/Fissa app** (Sicurezza → Altre impostazioni), così il tablet resta sulla badgeuse.
 - Ogni ristorante ha il suo Rush, quindi crei il link dal Rush di quel ristorante.

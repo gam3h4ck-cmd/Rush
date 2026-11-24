@@ -679,6 +679,9 @@ create table if not exists public.kiosks (
   last_seen   timestamptz
 );
 create index if not exists kiosks_org_idx on public.kiosks (org_id);
+-- Il link funziona su UN solo dispositivo: il primo che lo apre (il tablet) resta collegato.
+alter table public.kiosks add column if not exists device_hash text;
+alter table public.kiosks add column if not exists paired_at timestamptz;
 
 -- PIN dei dipendenti, solo cifrati (bcrypt). Nessuno può rileggerli, nemmeno l'admin.
 create table if not exists public.staff_pins (
@@ -730,8 +733,39 @@ as $$
   select * from public.punches where staff_id = p_staff and not voided order by at desc, created_at desc limit 1;
 $$;
 
+-- Controlla il tablet: token valido e dispositivo giusto. Il primo dispositivo che apre il link viene collegato.
+drop function if exists public.kiosk_state(uuid);
+drop function if exists public.kiosk_punch(uuid, uuid, text);
+create or replace function public.kiosk_check(p_kiosk uuid, p_device text)
+returns public.kiosks
+language plpgsql volatile security definer
+set search_path = public
+as $$
+declare
+  v_k public.kiosks%rowtype;
+  v_h text;
+begin
+  select * into v_k from public.kiosks where token = p_kiosk and active for update;
+  if not found then
+    return null;
+  end if;
+  if p_device is null or p_device !~ '^[0-9a-f]{64}$' then
+    v_k.id := null; v_k.device_hash := 'x';
+    return v_k;
+  end if;
+  v_h := encode(extensions.digest(p_device, 'sha256'), 'hex');
+  if v_k.device_hash is null then
+    update public.kiosks set device_hash = v_h, paired_at = now() where id = v_k.id;
+    v_k.device_hash := v_h;
+  elsif v_k.device_hash <> v_h then
+    v_k.id := null; v_k.device_hash := 'x';    -- segnala "altro dispositivo"
+  end if;
+  return v_k;
+end;
+$$;
+
 -- Stato del tablet: nome del locale e dipendenti, con chi è in servizio.
-create or replace function public.kiosk_state(p_kiosk uuid)
+create or replace function public.kiosk_state(p_kiosk uuid, p_device text)
 returns json
 language plpgsql volatile security definer
 set search_path = public
@@ -739,9 +773,12 @@ as $$
 declare
   v_k public.kiosks%rowtype;
 begin
-  select * into v_k from public.kiosks where token = p_kiosk and active;
-  if not found then
+  select * into v_k from public.kiosk_check(p_kiosk, p_device);
+  if v_k.device_hash is null then
     return null;
+  end if;
+  if v_k.id is null then
+    return json_build_object('error', 'device');
   end if;
   update public.kiosks set last_seen = now() where id = v_k.id;
   return json_build_object(
@@ -763,7 +800,7 @@ end;
 $$;
 
 -- Timbratura: entrata o uscita in base all'ultima timbratura. Errori previsti restituiti come {"error": ...}.
-create or replace function public.kiosk_punch(p_kiosk uuid, p_staff uuid, p_pin text)
+create or replace function public.kiosk_punch(p_kiosk uuid, p_device text, p_staff uuid, p_pin text)
 returns json
 language plpgsql volatile security definer
 set search_path = public
@@ -776,8 +813,8 @@ declare
   v_kind  text;
   v_at    timestamptz;
 begin
-  select * into v_k from public.kiosks where token = p_kiosk and active;
-  if not found then
+  select * into v_k from public.kiosk_check(p_kiosk, p_device);
+  if v_k.device_hash is null or v_k.id is null then
     return json_build_object('error', 'tablet');
   end if;
   select * into v_s from public.staff where id = p_staff and org_id = v_k.org_id;
@@ -930,14 +967,15 @@ grant select, insert, update, delete on public.kiosks to authenticated;
 grant select on public.punches to authenticated;     -- niente modifiche dirette: solo tramite le funzioni qui sopra
 
 revoke execute on function public.last_punch(uuid) from public;
-revoke execute on function public.kiosk_state(uuid) from public;
-revoke execute on function public.kiosk_punch(uuid, uuid, text) from public;
+revoke execute on function public.kiosk_check(uuid, text) from public;
+revoke execute on function public.kiosk_state(uuid, text) from public;
+revoke execute on function public.kiosk_punch(uuid, text, uuid, text) from public;
 revoke execute on function public.admin_set_pin(uuid, text) from public;
 revoke execute on function public.admin_pin_status(uuid) from public;
 revoke execute on function public.admin_punch_add(uuid, text, timestamptz, text) from public;
 revoke execute on function public.admin_punch_void(uuid, text) from public;
-grant  execute on function public.kiosk_state(uuid) to anon, authenticated;
-grant  execute on function public.kiosk_punch(uuid, uuid, text) to anon, authenticated;
+grant  execute on function public.kiosk_state(uuid, text) to anon, authenticated;
+grant  execute on function public.kiosk_punch(uuid, text, uuid, text) to anon, authenticated;
 grant  execute on function public.admin_set_pin(uuid, text) to authenticated;
 grant  execute on function public.admin_pin_status(uuid) to authenticated;
 grant  execute on function public.admin_punch_add(uuid, text, timestamptz, text) to authenticated;

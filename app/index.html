@@ -962,7 +962,7 @@ async function ensureAtt(force){
     const [pu,pi,ki]=await Promise.all([
       fetchAll(()=>sb.from("punches").select("id,staff_id,staff_name,kind,at,source,kiosk_id,created_at,reason,voided,voided_at,void_reason").eq("org_id",orgId).gte("at",from.toISOString()).lt("at",to.toISOString()).order("at").order("id")),
       sb.rpc("admin_pin_status",{p_org:orgId}),
-      sb.from("kiosks").select("id,name,token,active,created_at,last_seen").eq("org_id",orgId).order("created_at")
+      sb.from("kiosks").select("id,name,token,active,created_at,last_seen,paired_at").eq("org_id",orgId).order("created_at")
     ]);
     if(pi.error)throw pi.error;if(ki.error)throw ki.error;
     att.punches=pu;att.pins={};for(const x of pi.data||[])att.pins[x.staff_id]=x.updated_at;att.kiosks=ki.data||[];
@@ -1131,9 +1131,9 @@ function viewBadgeSettings(){
   let h='<div class="panel"><div class="hd"><h3>Badgeuse</h3></div>';
   if(att.ready===null)return h+'<div class="empty">Caricamento…</div></div>';
   if(att.ready===false)return h+'<div class="empty">Esegui una volta <b>supabase/aggiornamento-badgeuse.sql</b> in Supabase → SQL Editor → Run, poi ricarica.</div></div>';
-  h+='<div class="hd" style="border-top:0;padding-top:0"><span class="sub2">Tablet collegati: apri il link sul tablet del ristorante e aggiungilo alla schermata Home.</span><span class="spacer"></span>'+(readOnly?'':'<button class="btn primary" data-act="kiosk-new">Collega un tablet</button>')+'</div>';
-  h+=att.kiosks.length?att.kiosks.map(k=>'<div class="kiosk"><div><b>'+esc(k.name)+'</b> '+(k.active?'<span class="pill ok">Attivo</span>':'<span class="pill mute">Disattivato</span>')+'<div class="sub2" style="font-size:12px">'+(k.last_seen?'Ultimo contatto: '+fmtStamp(k.last_seen):'Mai usato')+'</div>'+(k.active?'<input readonly value="'+esc(badgeLink(k))+'" aria-label="Link del tablet">':'')+'</div><div class="actions">'+
-    (k.active?'<button class="btn" data-act="kiosk-copy" data-id="'+k.id+'">Copia link</button><a class="btn" href="'+esc(badgeLink(k))+'" target="_blank" rel="noopener">Apri</a>':'')+(readOnly?'':'<button class="btn" data-act="kiosk-toggle" data-id="'+k.id+'">'+(k.active?"Disattiva":"Riattiva")+'</button>')+'</div></div>').join(""):'<div class="empty">Nessun tablet collegato.</div>';
+  h+='<div class="hd" style="border-top:0;padding-top:0"><span class="sub2">Apri il link <b>solo sul tablet del ristorante</b>: il primo dispositivo che lo apre resta collegato e il link non funziona altrove.</span><span class="spacer"></span>'+(readOnly?'':'<button class="btn primary" data-act="kiosk-new">Collega un tablet</button>')+'</div>';
+  h+=att.kiosks.length?att.kiosks.map(k=>'<div class="kiosk"><div><b>'+esc(k.name)+'</b> '+(k.active?'<span class="pill ok">Attivo</span>':'<span class="pill mute">Disattivato</span>')+'<div class="sub2" style="font-size:12px">'+(k.paired_at?'Collegato a un dispositivo dal '+fmtStamp(k.paired_at):'In attesa: apri il link sul tablet')+(k.last_seen?' · ultimo contatto '+fmtStamp(k.last_seen):'')+'</div>'+(k.active&&!k.paired_at?'<input readonly value="'+esc(badgeLink(k))+'" aria-label="Link del tablet">':'')+'</div><div class="actions">'+
+    (k.active&&!k.paired_at?'<button class="btn" data-act="kiosk-copy" data-id="'+k.id+'">Copia link</button>':'')+(readOnly?'':(k.paired_at?'<button class="btn" data-act="kiosk-unpair" data-id="'+k.id+'">Scollega tablet</button>':'')+'<button class="btn" data-act="kiosk-toggle" data-id="'+k.id+'">'+(k.active?"Disattiva":"Riattiva")+'</button>')+'</div></div>').join(""):'<div class="empty">Nessun tablet collegato.</div>';
   h+='</div><div class="panel"><div class="hd"><h3>PIN dei dipendenti</h3><span class="sub2">4 cifre, per timbrare sul tablet. Nessuno può rileggerli: se uno lo dimentica, impostane uno nuovo.</span></div><div class="gridwrap"><table class="list"><tbody>'+
     cfg.staff.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(p=>'<tr><td><b>'+esc(p.name)+'</b></td><td>'+(att.pins[p.id]?'<span class="pill ok">PIN impostato</span>':'<span class="pill mute">Nessun PIN</span>')+'</td><td><div class="actions">'+(readOnly?'':'<button class="btn" data-act="pin-set" data-id="'+p.id+'">'+(att.pins[p.id]?"Cambia PIN":"Imposta PIN")+'</button>'+(att.pins[p.id]?'<button class="btn" data-act="pin-del" data-id="'+p.id+'">Rimuovi</button>':''))+'</div></td></tr>').join("")+
     '</tbody></table></div></div>';
@@ -1165,9 +1165,15 @@ function kioskModal(){
 }
 async function kioskNew(){
   const name=((document.getElementById("ki-name")||{}).value||"").trim().slice(0,40)||"Tablet";
-  const {data,error}=await sb.from("kiosks").insert({org_id:orgId,name}).select("id,name,token,active,created_at,last_seen").single();
+  const {data,error}=await sb.from("kiosks").insert({org_id:orgId,name}).select("id,name,token,active,created_at,last_seen,paired_at").single();
   if(error){console.error(error);document.getElementById("ki-err").textContent="Non riuscito, riprova.";return}
   att.kiosks.push(data);closeModal();render();copyText(badgeLink(data));
+}
+async function kioskUnpair(id){
+  const k=att.kiosks.find(z=>z.id===id);if(!k)return;
+  const {error}=await sb.from("kiosks").update({device_hash:null,paired_at:null}).eq("id",id);
+  if(error){toast("Non riuscito, riprova");return}
+  k.paired_at=null;render();toast("Scollegato: il prossimo dispositivo che apre il link resterà collegato");
 }
 async function kioskToggle(id){
   const k=att.kiosks.find(z=>z.id===id);if(!k)return;
@@ -1366,6 +1372,8 @@ document.addEventListener("click",e=>{
   if(act==="kiosk-new"){kioskModal();return}
   if(act==="kiosk-new-do"){kioskNew();return}
   if(act==="kiosk-toggle"){kioskToggle(t.dataset.id);return}
+  if(act==="kiosk-unpair"){confirmModal("Scollega tablet","Il tablet attuale smetterà di funzionare. Poi apri il link sul nuovo tablet: sarà il primo dispositivo ad aprirlo a restare collegato.","Scollega","do-unpair:"+t.dataset.id);return}
+  if(act.startsWith("do-unpair:")){kioskUnpair(act.slice(10));closeModal();return}
   if(act==="sw-no"){swapRejectModal(t.dataset.id);return}
   if(act==="sw-no-do"){const v=(document.getElementById("sw-reason")||{}).value||"";closeModal();decideSwap(t.dataset.id,false,v.trim());return}
   if(act==="sw-del"){const w=swaps.find(x=>x.id===t.dataset.id);confirmModal("Elimina cambio","Eliminare questo cambio dallo storico? I turni non cambiano.","Elimina","do-swdel:"+t.dataset.id);return}

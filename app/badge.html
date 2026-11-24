@@ -102,6 +102,9 @@ const fD=new Intl.DateTimeFormat("it-IT",{timeZone:TZ,weekday:"long",day:"numeri
 const ROLES={sala:"Sala",cucina:"Cucina",bar:"Bar"};
 let token=(location.hash||"").slice(1).trim();
 if(/^[0-9a-f-]{36}$/i.test(token))store.set("rush-kiosk-token",token);else token=store.get("rush-kiosk-token")||"";
+// codice segreto di questo dispositivo: il link funziona solo sul primo dispositivo che lo apre
+let device=store.get("rush-kiosk-device:"+token)||"";
+if(token&&!/^[0-9a-f]{64}$/.test(device)){const b=new Uint8Array(32);crypto.getRandomValues(b);device=[...b].map(x=>x.toString(16).padStart(2,"0")).join("");store.set("rush-kiosk-device:"+token,device)}
 let sb=null, state=null, offset=0, online=true, busy=false, sel=null, pin="", closeTimer=null;
 
 const now=()=>new Date(Date.now()+offset);           // orologio allineato al server
@@ -113,9 +116,10 @@ function main(html){document.getElementById("main").innerHTML=html}
 async function load(){
   try{
     const t0=Date.now();
-    const {data,error}=await sb.rpc("kiosk_state",{p_kiosk:token});
+    const {data,error}=await sb.rpc("kiosk_state",{p_kiosk:token,p_device:device});
     if(error)throw error;
     if(data===null){state=null;main('<div class="empty">Questo tablet non è collegato a Rush.<br>Apri il link del tablet creato in Rush → Impostazioni → Badgeuse.</div>');return}
+    if(data.error==="device"){state=null;main('<div class="empty"><b>Questo link è già collegato a un altro dispositivo.</b><br>La badgeuse funziona solo sul tablet del ristorante. Se questo è il tablet giusto, chiedi al responsabile di premere «Scollega tablet» in Rush → Impostazioni → Badgeuse, poi ricarica la pagina.</div>');return}
     const srv=new Date(data.now).getTime();offset=srv-(t0+Date.now())/2;
     state=data;online=true;render();
   }catch(e){online=false;if(state)render();else main('<div class="empty">Nessuna connessione a internet.<br>Riprovo tra pochi secondi…</div>')}
@@ -149,7 +153,7 @@ async function submit(){
   if(busy)return;busy=true;
   const p=state.staff.find(x=>x.id===sel),code=pin;
   try{
-    const {data,error}=await sb.rpc("kiosk_punch",{p_kiosk:token,p_staff:sel,p_pin:code});
+    const {data,error}=await sb.rpc("kiosk_punch",{p_kiosk:token,p_device:device,p_staff:sel,p_pin:code});
     if(error)throw error;
     if(data.error==="pin"){pin="";pinSheet("PIN errato, riprova",true);busy=false;return}
     if(data.error==="locked"){resultSheet("🔒",'<h3>Troppi tentativi</h3><p>Aspetta 15 minuti o chiedi al responsabile di reimpostare il PIN.</p>',"bad",6000)}
