@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Rush">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23faf7f1%27/%3E%3Crect x=%277%27 y=%278%27 width=%2714%27 height=%273.5%27 rx=%271.75%27 fill=%27%233d8b4f%27/%3E%3Crect x=%2710%27 y=%2714.25%27 width=%2716%27 height=%273.5%27 rx=%271.75%27 fill=%27%23e0ac34%27/%3E%3Crect x=%275%27 y=%2720.5%27 width=%2712%27 height=%273.5%27 rx=%271.75%27 fill=%27%23c8412b%27/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2314161b'/%3E%3Cpath d='M136.10,166.90 L334.10,166.90 L309.90,208.70 L111.90,208.70Z' fill='%23ff5a1f' fill-opacity='1'/%3E%3Cpath d='M191.10,235.10 L422.10,235.10 L397.90,276.90 L166.90,276.90Z' fill='%23ff7d4d' fill-opacity='1'/%3E%3Cpath d='M114.10,303.30 L279.10,303.30 L254.90,345.10 L89.90,345.10Z' fill='%23ffa27c' fill-opacity='1'/%3E%3C/svg%3E">
 <title>Rush</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -434,7 +434,7 @@ td.cell.offday{background:repeating-linear-gradient(135deg,#fff 0 7px,#f1f5f9 7p
 <header class="top">
   <div class="wrap">
     <div class="topbar">
-      <div class="brand"><span class="logo" aria-hidden="true"><svg width="30" height="22" viewBox="0 0 30 22"><rect x="2" y="3" width="18" height="3.6" rx="1.8" fill="#3d8b4f"/><rect x="7" y="9.2" width="21" height="3.6" rx="1.8" fill="#e0ac34"/><rect x="0" y="15.4" width="15" height="3.6" rx="1.8" fill="#c8412b"/></svg></span><h1>Rush</h1><span class="venue" id="venue"></span></div>
+      <div class="brand"><span class="logo" aria-hidden="true"><svg width="32" height="22" viewBox="0 0 32 22"><path d="M4.20,3.00 L22.20,3.00 L20.00,6.80 L2.00,6.80Z" fill="#ff5a1f" fill-opacity="1"/><path d="M9.20,9.20 L30.20,9.20 L28.00,13.00 L7.00,13.00Z" fill="#ff7d4d" fill-opacity="1"/><path d="M2.20,15.40 L17.20,15.40 L15.00,19.20 L0.00,19.20Z" fill="#ffa27c" fill-opacity="1"/></svg></span><h1>Rush</h1><span class="venue" id="venue"></span></div>
       <div class="status" id="status"><span class="dot"></span><span>Caricamento…</span></div>
     </div>
     <nav class="tabs" id="tabs" aria-label="Sezioni">
@@ -468,7 +468,7 @@ const KINDS={ferie:"Ferie",libero:"Giorno libero"};
 const RSTATUS={attesa:["In attesa","warn"],approvata:["Approvata","ok"],rifiutata:["Rifiutata","crit"]};
 const SLOTS={tutto:"Tutto il giorno",pranzo:"Solo pranzo",cena:"Solo cena",no:"Non disponibile"};
 const SLOT_SHORT={tutto:"Tutto",pranzo:"Pranzo",cena:"Cena",no:"No"};
-const DEFAULT_SETTINGS={budget:4500,studentLimit:650,maxDay:10,maxWeek:38,minRest:11,defaultPause:0};
+const DEFAULT_SETTINGS={budget:4500,studentLimit:650,maxDay:10,maxWeek:38,minRest:11,defaultPause:0,minShift:3,maxSpan:14,workDays:5,reminderHour:18};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
 const eur=n=>new Intl.NumberFormat("it-BE",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n||0);
@@ -528,7 +528,7 @@ async function runJob(key,j){
         j.busy=false;setStatus("crit",navigator.onLine?"Salvataggio non riuscito: ricarica la pagina":"Sei offline: le ultime modifiche non sono salvate");return;}
     }
   }
-  j.busy=false;if(!pending())setStatus("ok","Tutto salvato");
+  j.busy=false;if(!pending()){setStatus("ok","Tutto salvato");schedulePush()}
 }
 const idle=async key=>{while(busy(key))await new Promise(r=>setTimeout(r,120))};
 const ymd=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
@@ -631,11 +631,14 @@ const availOn=(staffId,ds)=>(avail[staffId]||{})[ds]||"";
 function slotFits(slot,x){if(!slot||slot==="tutto")return true;if(slot==="no")return false;return shiftType(x)===slot}
 const pendingCount=()=>reqs.filter(r=>r.status==="attesa"&&staffById(r.staffId)).length+swaps.filter(w=>w.status==="attesa_admin"&&staffById(w.from)&&staffById(w.to)).length;
 const dayCount=(a,b)=>Math.round((parseYmd(b)-parseYmd(a))/86400000)+1;
+// ferie in giorni lavorativi con regime fisso (es. 5 su 7): settimane piene × regime + giorni restanti (al massimo il regime)
+const workDaysIn=(a,b)=>{const n=dayCount(a,b),w=Math.min(7,Math.max(1,Math.round(+S().workDays||5)));return Math.floor(n/7)*w+Math.min(n%7,w)};
+const wdLabel=(a,b)=>{const n=dayCount(a,b),w=workDaysIn(a,b);return '<b>'+w+(w===1?' giorno lavorativo':' giorni lavorativi')+'</b>'+(n!==w?' <span class="sub2">('+n+' di calendario)</span>':'')};
 const fmtDayW=d=>DAYS[(d.getDay()+6)%7]+" "+fmtDay(d);
 function fmtRange(a,b){return a===b?fmtDayW(parseYmd(a)):fmtDayW(parseYmd(a))+" – "+fmtDayW(parseYmd(b))}
 function fmtStamp(v){const d=new Date(v);if(!v||isNaN(d))return "";return fmtDay(d)+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 // stato di una persona in un giorno della settimana mostrata: assenze, disponibilità e conflitti con i turni
-function dayInfo(p,d,list){
+function dayInfo(p,d,list,noCp){
   const ds=ymd(addDays(curMonday,d)),offs=offOn(p.id,ds),slot=p.status==="studente"?availOn(p.id,ds):"";
   let cls="",badges="";const warns=[];
   for(const r of offs){
@@ -646,8 +649,34 @@ function dayInfo(p,d,list){
     badges+='<span class="cbadge av-'+slot+'" title="Disponibilità: '+SLOTS[slot]+'">'+(slot==="no"?"Non disp.":"Disp. "+SLOT_SHORT[slot].toLowerCase())+'</span>';
     if(list.some(x=>!slotFits(slot,x))){if(cls!=="crit")cls="warn";warns.push(slot==="no"?p.name+" ha detto di non essere disponibile":p.name+" è disponibile solo a "+(slot==="pranzo"?"pranzo":"cena"))}
   }
+  for(const [lvl,msg] of noCp?[]:cpIssues(p,d,list)){warns.push(p.name+": "+msg);if(lvl==="crit")cls="crit";else if(cls!=="crit")cls="warn"}
   if(!cls&&!list.length&&offs.some(r=>r.status==="approvata"))cls="offday";
   return {cls,badges:badges?'<div class="cbadges">'+badges+'</div>':"",warns};
+}
+// regole orarie (CP 302 e regole generali): turni sovrapposti, durata minima, massimo giornaliero, ampiezza, riposo, giorno di riposo settimanale
+function shiftsAbsOn(staffId,date,skipId){
+  const k=weekKey(mondayOf(date)),di=(date.getDay()+6)%7,base=new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime();
+  return (weeks[k]||[]).filter(x=>x.staffId===staffId&&x.day===di&&x.id!==skipId).map(x=>{const a=base+toMin(x.start)*60000;return {x,a,e:a+shiftMinutes(x)*60000}});
+}
+function cpIssues(p,d,list,opts){
+  if(!p||p.status==="indipendente"||!list.length)return [];
+  const s=S(),date=addDays(curMonday,d),base=new Date(date.getFullYear(),date.getMonth(),date.getDate()).getTime(),out=[];
+  const iv=list.filter(x=>x.start&&x.end).map(x=>{const a=base+toMin(x.start)*60000;return {x,a,e:a+shiftMinutes(x)*60000}}).sort((u,v)=>u.a-v.a);
+  if(!iv.length)return out;
+  for(let i=1;i<iv.length;i++)if(iv[i].a<iv[i-1].e)out.push(["crit","turni sovrapposti"]);
+  const minS=+s.minShift||0;
+  for(const z of iv){const dur=(z.e-z.a)/3600000;if(minS&&dur<minS)out.push(["warn","turno di "+hrs(dur)+" (minimo "+minS+" h per turno)"])}
+  const tot=iv.reduce((a,z)=>a+shiftHours(z.x),0);
+  if(+s.maxDay&&tot>s.maxDay)out.push(["warn",hrs(tot)+" di lavoro nella giornata (massimo "+s.maxDay+" h)"]);
+  const span=(Math.max(...iv.map(z=>z.e))-iv[0].a)/3600000;
+  if(+s.maxSpan&&iv.length>1&&span>s.maxSpan)out.push(["warn","giornata di "+hrs(span)+" dal primo all'ultimo turno (massimo "+s.maxSpan+" h)"]);
+  const prev=shiftsAbsOn(p.id,addDays(date,-1),opts&&opts.skipId);
+  if(prev.length&&+s.minRest){const gap=(iv[0].a-Math.max(...prev.map(z=>z.e)))/3600000;if(gap>=0&&gap<s.minRest)out.push(["warn","solo "+hrs(gap)+" di riposo dal turno del giorno prima (minimo "+s.minRest+" h)"])}
+  const next=shiftsAbsOn(p.id,addDays(date,1),opts&&opts.skipId);
+  if(opts&&opts.modal&&next.length&&+s.minRest){const gap=(Math.min(...next.map(z=>z.a))-Math.max(...iv.map(z=>z.e)))/3600000;if(gap>=0&&gap<s.minRest)out.push(["warn","solo "+hrs(gap)+" di riposo prima del turno del giorno dopo (minimo "+s.minRest+" h)"])}
+  const k=weekKey(mondayOf(date)),days=new Set((weeks[k]||[]).filter(x=>x.staffId===p.id&&!(opts&&x.id===opts.skipId)).map(x=>x.day));days.add(d);
+  if(days.size>=7&&(d===6||(opts&&opts.modal)))out.push(["warn","nessun giorno di riposo nella settimana"]);
+  return out;
 }
 
 /* ---------- calcoli ---------- */
@@ -732,7 +761,7 @@ function viewPlanning(){
   const crit=st.alerts.filter(a=>a[0]==="crit").length,warn=st.alerts.length-crit;
   let h='<div class="row">'+weekHeader()+'<span class="spacer"></span>'+
     (readOnly?"":'<button class="btn" data-act="copyprev">Copia settimana precedente</button>')+
-    '<button class="btn" data-act="wa-team">Copia per WhatsApp</button><button class="btn" data-act="csv">Copia CSV</button></div>';
+    '<button class="btn" data-act="wa-team">Copia per WhatsApp</button><button class="btn" data-act="csv">Copia CSV</button>'+pushBtnHtml()+'</div>';
   h+='<div class="tiles">'+
     '<div class="tile"><div class="lbl">Ore pianificate</div><div class="val num">'+hrs(st.totH)+'</div><div class="hint">'+(weeks[k]||[]).length+' turni</div></div>'+
     '<div class="tile"><div class="lbl">Costo personale stimato</div><div class="val num">'+eur(st.totC)+'</div><div class="hint">'+(st.totH?eur(st.totC/st.totH)+" / ora in media":"—")+'</div></div>'+
@@ -808,7 +837,7 @@ function viewPlanningMobile(k,st,s){
   if(dayIdx==null)dayIdx=weekKey(mondayOf(today))===k?(today.getDay()+6)%7:0;
   const d=dayIdx;
   let h=weekHeader();
-  h+='<div class="m-actions">'+(readOnly?"":'<button class="btn" data-act="copyprev">Copia sett. precedente</button>')+'<button class="btn" data-act="wa-team">WhatsApp</button><button class="btn" data-act="csv">CSV</button></div>';
+  h+='<div class="m-actions">'+(readOnly?"":'<button class="btn" data-act="copyprev">Copia sett. precedente</button>')+'<button class="btn" data-act="wa-team">WhatsApp</button><button class="btn" data-act="csv">CSV</button>'+pushBtnHtml()+'</div>';
   h+=tilesHtml(k,st,s);
   h+=legendHtml();
   h+='<div class="daystrip" role="tablist" aria-label="Giorno">'+DAYS.map((n,i)=>{
@@ -921,7 +950,7 @@ function reqRow(r,pending){
   const btn=readOnly?"":(pending?'<button class="btn primary" data-act="rq-ok" data-id="'+r.id+'">Approva</button><button class="btn" data-act="rq-no" data-id="'+r.id+'">Rifiuta</button>':
     (r.status==="approvata"?'<button class="btn" data-act="rq-no" data-id="'+r.id+'">Rifiuta</button>':'<button class="btn" data-act="rq-ok" data-id="'+r.id+'">Approva</button>')+'<button class="btn danger" data-act="rq-del" data-id="'+r.id+'">Elimina</button>');
   return '<div class="rq"><div class="rq-main"><div><span class="who"><span class="roledot" style="background:var(--'+p.role+')"></span>'+esc(p.name)+'</span> · <b>'+KINDS[r.kind]+'</b> '+(pending?"":'<span class="pill '+st[1]+'">'+st[0]+'</span>')+'</div>'+
-    '<div class="num">'+fmtRange(r.start,r.end)+(n>1?' · '+n+' giorni':'')+'</div>'+
+    '<div class="num">'+fmtRange(r.start,r.end)+' · '+wdLabel(r.start,r.end)+'</div>'+
     (r.note?'<div class="sub2">«'+esc(r.note)+'»</div>':'')+(r.adminNote?'<div class="sub2"><b>Tua risposta:</b> '+esc(r.adminNote)+'</div>':'')+
     (sh&&r.status!=="rifiutata"?'<div class="rq-warn">Ha già '+sh+(sh===1?" turno":" turni")+' in questi giorni</div>':'')+
     (others.length&&pending?'<div class="rq-warn">Nello stesso periodo sono assenti: '+others.map(esc).join(", ")+'</div>':'')+
@@ -1023,6 +1052,7 @@ async function decide(id,status,note){
   if(error){console.error(error);setStatus("crit","Salvataggio non riuscito");toast("Non riuscito, riprova");return}
   Object.assign(r,{status,adminNote:upd.admin_note,decidedAt:upd.decided_at});setStatus("ok","Tutto salvato");
   render();toast(status==="approvata"?"Richiesta approvata":"Richiesta rifiutata");
+  notify({action:"request",id});
 }
 async function addAbsence(){
   const g=id=>document.getElementById(id).value;
@@ -1037,6 +1067,7 @@ async function addAbsence(){
   if(error){console.error(error);err("Salvataggio non riuscito, riprova.");return}
   reqs.push({id:data.id,staffId:row.staff_id,kind:row.kind,start:row.start_day,end:row.end_day,note:row.note,status:"approvata",adminNote:"",createdAt:data.created_at,decidedAt:row.decided_at});
   closeModal();render();toast("Assenza aggiunta");
+  notify({action:"request",id:data.id});
 }
 function swapRejectModal(id){
   const w=swaps.find(x=>x.id===id),A=w&&staffById(w.from),B=w&&staffById(w.to);if(!w||!A||!B)return;
@@ -1064,6 +1095,7 @@ async function decideSwap(id,approve,note){
   }
   Object.assign(w,{status:approve?"approvata":"rifiutata",adminNote:(note||"").slice(0,200),decidedAt:now});
   setStatus("ok","Tutto salvato");render();toast(approve?"Cambio approvato: planning aggiornato":"Cambio rifiutato");
+  notify({action:"swap",id});if(approve)schedulePush();
 }
 async function deleteSwap(id){
   const {error}=await sb.from("shift_swaps").delete().eq("id",id);
@@ -1074,6 +1106,45 @@ async function deleteReq(id){
   const {error}=await sb.from("time_off").delete().eq("id",id);
   if(error){console.error(error);toast("Non riuscito, riprova");return}
   reqs=reqs.filter(x=>x.id!==id);render();toast("Richiesta eliminata");
+}
+/* ---------- notifiche push ai dipendenti (funzione "notify" su Supabase) ---------- */
+let push={ready:null,people:0,withPush:0,subscribed:0,timer:null,sending:false};
+async function notify(body){
+  if(!sb||!sb.functions)return null;
+  try{const {data,error}=await sb.functions.invoke("notify",{body});if(error)throw error;return data}
+  catch(e){console.warn("Notifica non inviata",e);return null}
+}
+async function refreshPush(){
+  if(readOnly||!sb||!orgId||mode!=="db")return;
+  try{
+    const {data,error}=await sb.rpc("admin_planning_pending",{p_org:orgId});
+    if(error)throw error;
+    push.ready=true;push.people=+data.people||0;push.withPush=+data.with_push||0;push.subscribed=+data.subscribed||0;
+  }catch(e){push.ready=false}   // database non ancora aggiornato: niente bottone
+  document.querySelectorAll("[data-push-slot]").forEach(el=>{el.outerHTML=pushBtnHtml()});
+}
+function schedulePush(){clearTimeout(push.timer);push.timer=setTimeout(refreshPush,1200)}
+function pushBtnHtml(){
+  if(readOnly||push.ready!==true)return '<span data-push-slot hidden></span>';
+  return push.people?'<button class="btn primary" data-push-slot data-act="push-plan" title="Invia una notifica a chi ha turni nuovi o cambiati">Avvisa il team<span class="cnt" style="background:#fff;color:var(--accent)">'+push.people+'</span></button>'
+    :'<button class="btn" data-push-slot disabled title="Nessuna novità da comunicare">Team avvisato ✓</button>';
+}
+function pushPlanModal(){
+  const tot=cfg.staff.filter(p=>p.linkActive!==false).length;
+  const n=push.people,w=push.withPush;
+  openModal("Avvisa il team",'<p style="margin:0"><b>'+n+(n===1?" persona ha":" persone hanno")+'</b> turni nuovi o cambiati, da questa settimana alle prossime 8.</p>'+
+    '<p style="margin:0">'+(w===n?(n===1?"Riceverà":"Riceveranno tutte")+" la notifica sul telefono.":w+" su "+n+" riceveranno la notifica sul telefono; le altre vedranno le novità aprendo il loro link.")+'</p>'+
+    '<p class="help" style="margin:0;font-size:12px;color:var(--muted)">Notifiche attivate: '+push.subscribed+' persone su '+tot+'. Ognuno le attiva dal proprio link (pagina Turni).</p>',
+    '<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="push-send">Invia</button>');
+}
+async function sendPlanPush(btn){
+  if(push.sending)return;push.sending=true;btn.disabled=true;btn.textContent="Invio…";
+  while(pending())await new Promise(r=>setTimeout(r,150));   // prima salva il planning
+  const r=await notify({action:"planning",org:orgId});
+  push.sending=false;closeModal();
+  if(!r){toast("Invio non riuscito. Riprova tra poco");refreshPush();return}
+  toast(r.people?("Avvisate "+r.people+(r.people===1?" persona":" persone")+(r.sent?" · "+r.sent+" notifiche inviate":"")):"Nessuna novità da comunicare");
+  refreshPush();
 }
 /* ---------- badgeuse e presenze ---------- */
 const TZ="Europe/Brussels";
@@ -1357,10 +1428,12 @@ function viewSettings(){
     f("set-venue","Nome del locale",cfg.venue||"","","text")+
     f("set-budget","Budget personale settimanale (€)",s.budget,"Costo aziendale massimo che vuoi spendere a settimana. 0 = nessun budget.")+
     '<div class="two">'+f("set-maxDay","Ore massime al giorno",s.maxDay,"Fissi e studenti",'number','0.5')+f("set-maxWeek","Massimo ore a settimana predefinito",s.maxWeek,"Se non imposti un massimo per la persona",'number','0.5')+'</div>'+
-    '<div class="two">'+f("set-minRest","Riposo minimo tra due giorni (ore)",s.minRest,"",'number','0.5')+f("set-studentLimit","Limite annuale ore studente",s.studentLimit,"")+'</div>'+
+    '<div class="two">'+f("set-minRest","Riposo minimo tra due turni (ore)",s.minRest,"CP 302: almeno 11 h",'number','0.5')+f("set-studentLimit","Limite annuale ore studente",s.studentLimit,"")+'</div>'+
+    '<div class="two">'+f("set-minShift","Durata minima di un turno (ore)",s.minShift,"Regola generale: 3 h per prestazione",'number','0.5')+f("set-maxSpan","Ampiezza massima della giornata (ore)",s.maxSpan,"Dall'inizio del primo turno alla fine dell'ultimo",'number','0.5')+'</div>'+
+    '<div class="two">'+f("set-workDays","Giorni lavorativi a settimana (per contare le ferie)",s.workDays,"Es. 5: due settimane di ferie contano 10 giorni")+f("set-reminderHour","Promemoria del turno: la sera prima alle",s.reminderHour,"Ora (0–22). Notifica a chi lavora il giorno dopo")+'</div>'+
     '<div class="field"><label for="set-defaultPause">Pausa per ogni nuovo turno</label><select id="set-defaultPause"'+dis+'>'+[0,15,30,45,60].map(v=>'<option value="'+v+'"'+(+s.defaultPause===v?" selected":"")+'>'+(v?v+" minuti":"Nessuna pausa")+'</option>').join("")+'</select></div>'+
     (readOnly?"":'<div><button class="btn" data-act="applypause">Applica questa pausa a tutti i turni della settimana '+(+curKey().slice(6))+'</button></div>')+
-    '<p class="help" style="font-size:12px;color:var(--muted);margin:0">Sono soglie di avviso, non regole legali. Verifica i valori corretti per il tuo locale con il segretariato sociale.</p>'+
+    '<p class="help" style="font-size:12px;color:var(--muted);margin:0">Sono soglie di avviso nel planning, con valori di partenza presi dalle regole generali dell\'horeca (CP 302). Il tuo regolamento di lavoro può prevedere deroghe: verifica i valori con il segretariato sociale.</p>'+
   '</div></div>'+viewBadgeSettings()+'<div class="panel"><div class="hd"><h3>Account</h3></div><div class="form"><div class="sub2">'+esc(session&&session.user?session.user.email:"")+'</div><div><button class="btn" data-act="logout">Esci</button></div></div></div>';
 }
 
@@ -1389,7 +1462,8 @@ function shiftModal(shift,staffId,day){
   const foot=(isNew?"":'<button class="btn danger" data-act="sh-del" data-id="'+x.id+'">Elimina</button><button class="btn" data-act="sh-copy" data-id="'+x.id+'">Copia</button>')+'<span class="spacer"></span><button class="btn" data-act="close">Annulla</button><button class="btn primary" data-act="sh-save" data-id="'+(x.id||"")+'">'+(isNew?"Aggiungi turno":"Salva")+'</button>';
   openModal(isNew?"Nuovo turno":"Modifica turno",body,foot,l=>{
     const upd=()=>{if(!l.querySelector("#sh-start"))return;const t={start:l.querySelector("#sh-start").value,end:l.querySelector("#sh-end").value,pause:+l.querySelector("#sh-pause").value||0};const p=staffById(l.querySelector("#sh-staff").value);const h=shiftHours(t);l.querySelector("#sh-sum").textContent=t.start&&t.end?hrs(h)+(p?" · "+eur(shiftCost(t,p))+(isIndip(p)?" (1 servizio)":""):"")+(toMin(t.end)<=toMin(t.start)?" · finisce dopo mezzanotte":""):"";
-      const wv=l.querySelector("#sh-warn");if(wv){const ws=p&&t.start&&t.end?dayInfo(p,+l.querySelector("#sh-day").value,[t]).warns:[];wv.innerHTML=ws.map(w=>"<span><b>Attenzione:</b> "+esc(w)+"</span>").join("")}};
+      const wv=l.querySelector("#sh-warn");if(wv){const dd=+l.querySelector("#sh-day").value,sid=shift&&shift.id;
+        const ws=p&&t.start&&t.end?[...dayInfo(p,dd,[t],true).warns,...cpIssues(p,dd,[...(weeks[curKey()]||[]).filter(x=>x.staffId===p.id&&x.day===dd&&x.id!==sid),t],{modal:true,skipId:sid}).map(z=>p.name+": "+z[1])]:[];wv.innerHTML=ws.map(w=>"<span><b>Attenzione:</b> "+esc(w)+"</span>").join("")}};
     l.addEventListener("input",upd);l.addEventListener("change",upd);upd();
   });
 }
@@ -1448,6 +1522,8 @@ document.addEventListener("click",e=>{
   if(act==="day"){dayIdx=+t.dataset.d;render();return}
   if(act==="wa-team"){copyText(waText(cfg.staff.map(p=>p.id)));return}
   if(act==="csv"){copyText(csvText());return}
+  if(act==="push-plan"){pushPlanModal();return}
+  if(act==="push-send"){sendPlanPush(t);return}
   if(act==="copylink"){const p=staffById(t.dataset.id);if(p&&p.token)copyText(staffLink(p));return}
   if(act==="att-prev"||act==="att-next"||act==="att-now"){att.month=act==="att-now"?curMonth():shiftMonth(att.month||curMonth(),act==="att-prev"?-1:1);att.ready=null;render();return}
   if(act==="att-refresh"){ensureAtt(true);return}
@@ -1532,7 +1608,9 @@ document.addEventListener("change",e=>{
   if(!t.id||!t.id.startsWith("set-")||readOnly)return;
   const key=t.id.slice(4);
   if(key==="venue"){cfg.venue=t.value.trim();}
-  else{const v=+t.value;if(!(v>=0)){t.value=S()[key];return}cfg.settings={...S(),[key]:v}}
+  else{let v=+t.value;if(!(v>=0)){t.value=S()[key];return}
+    if(key==="workDays")v=Math.min(7,Math.max(1,Math.round(v)));if(key==="reminderHour")v=Math.min(22,Math.round(v));
+    t.value=v;cfg.settings={...S(),[key]:v}}
   saveCfg();render();
 });
 document.addEventListener("submit",async e=>{
@@ -1598,7 +1676,7 @@ async function start(){
   try{
     mode="loading";render();setStatus("warn","Caricamento…");
     const {data,error}=await sb.rpc("ensure_org");if(error)throw error;
-    orgId=data;await loadAll();mode="db";render();setStatus("ok","Tutto salvato");
+    orgId=data;await loadAll();mode="db";render();setStatus("ok","Tutto salvato");refreshPush();
   }catch(e){console.error(e);mode="db";setStatus("crit","Impossibile caricare i dati: controlla la connessione e ricarica");render()}
   finally{starting=false}
 }

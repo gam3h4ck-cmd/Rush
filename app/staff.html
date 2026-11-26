@@ -10,7 +10,7 @@
 <title>Rush · I miei turni</title>
 <link rel="manifest" href="manifest-staff.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%23faf7f1%27/%3E%3Crect x=%277%27 y=%278%27 width=%2714%27 height=%273.5%27 rx=%271.75%27 fill=%27%233d8b4f%27/%3E%3Crect x=%2710%27 y=%2714.25%27 width=%2716%27 height=%273.5%27 rx=%271.75%27 fill=%27%23e0ac34%27/%3E%3Crect x=%275%27 y=%2720.5%27 width=%2712%27 height=%273.5%27 rx=%271.75%27 fill=%27%23c8412b%27/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2314161b'/%3E%3Cpath d='M136.10,166.90 L334.10,166.90 L309.90,208.70 L111.90,208.70Z' fill='%23ff5a1f' fill-opacity='1'/%3E%3Cpath d='M191.10,235.10 L422.10,235.10 L397.90,276.90 L166.90,276.90Z' fill='%23ff7d4d' fill-opacity='1'/%3E%3Cpath d='M114.10,303.30 L279.10,303.30 L254.90,345.10 L89.90,345.10Z' fill='%23ffa27c' fill-opacity='1'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -368,15 +368,31 @@ header.top::after{display:none}
 .meday .day b,.drow .day b{font-family:var(--font-display);letter-spacing:-.02em}
 .okmsg{color:#15803d}
 .hello .sub2{font-size:13px}
+/* notifiche */
+.btn.small{padding:6px 10px;font-size:13px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+.bell{width:22px;height:22px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pushcard{display:flex;gap:12px;align-items:flex-start;padding:16px;margin-bottom:14px;border-left:3px solid var(--accent)}
+.pushcard .bell{margin-top:2px}
+.pushcard h3{margin:0 0 4px;font-size:15px}
+.pushcard p{margin:0;color:#4b5563;font-size:14px;line-height:1.45}
+.pc-body{display:grid;gap:8px;min-width:0}
+.pc-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.pushline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:13.5px}
+.shr{width:15px;height:15px;vertical-align:-2px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.pushline.muted{color:var(--muted)}.pushline.muted .bell{stroke:var(--muted)}
+.pushline .okmsg,.pushline .err{flex-basis:100%;font-size:13px}
 </style>
 <script src="config.js"></script>
+<script src="push-config.js"></script>
 <script src="vendor/supabase.js"></script>
 </head>
 <body>
 <header class="top">
   <div class="wrap">
     <div class="topbar">
-      <div class="brand"><span class="logo" aria-hidden="true"><svg width="30" height="22" viewBox="0 0 30 22"><rect x="2" y="3" width="18" height="3.6" rx="1.8" fill="#3d8b4f"/><rect x="7" y="9.2" width="21" height="3.6" rx="1.8" fill="#e0ac34"/><rect x="0" y="15.4" width="15" height="3.6" rx="1.8" fill="#c8412b"/></svg></span><h1>Rush</h1><span class="venue" id="venue"></span></div>
+      <div class="brand"><span class="logo" aria-hidden="true"><svg width="32" height="22" viewBox="0 0 32 22"><path d="M4.20,3.00 L22.20,3.00 L20.00,6.80 L2.00,6.80Z" fill="#ff5a1f" fill-opacity="1"/><path d="M9.20,9.20 L30.20,9.20 L28.00,13.00 L7.00,13.00Z" fill="#ff7d4d" fill-opacity="1"/><path d="M2.20,15.40 L17.20,15.40 L15.00,19.20 L0.00,19.20Z" fill="#ffa27c" fill-opacity="1"/></svg></span><h1>Rush</h1><span class="venue" id="venue"></span></div>
       <div class="status" id="status"></div>
     </div>
   </div>
@@ -427,6 +443,10 @@ const portalTo=()=>addDays(mondayOf(today),7*(DISP_WEEKS+1)-1);
 const fmtDayW=d=>DAYS[(d.getDay()+6)%7]+" "+fmtDay(d);
 function fmtRange(a,b){const s=parseYmd(a),e=parseYmd(b);return ymd(s)===ymd(e)?fmtDayW(s):fmtDayW(s)+" – "+fmtDayW(e)}
 const nDays=(a,b)=>Math.round((parseYmd(b)-parseYmd(a))/86400000)+1;
+// giorni lavorativi con il regime del locale (es. 5 su 7): due settimane = 10 giorni
+const workDaysIn=(a,b)=>{const n=nDays(a,b),w=Math.min(7,Math.max(1,Math.round(+(portal&&portal.work_days)||5)));return Math.floor(n/7)*w+Math.min(n%7,w)};
+const wdText=(a,b)=>{const n=nDays(a,b),w=workDaysIn(a,b);return w+(w===1?" giorno lavorativo":" giorni lavorativi")+(n!==w?" ("+n+" di calendario)":"")};
+const countText=()=>{const a=reqForm.start,b=reqForm.end||reqForm.start;if(!a||b<a)return "";return "Conta come "+wdText(a,b)+"."};
 function fmtStamp(v){const d=new Date(v);if(isNaN(d))return "";return fmtDay(d)+" alle "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
 function errText(e){const m=String((e&&e.message)||"");
   if(/passato/.test(m))return "La data è già passata.";
@@ -462,6 +482,72 @@ async function fetchSwap(){
     swap=c;swapOk=!!c;
   }
 }
+/* ---------- notifiche push ---------- */
+const PUSH_KEY=(window.RUSH_CONFIG||{}).vapidPublicKey||"";
+const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+const standalone=()=>(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+let pushSt="", pushMsg="", pushErr="", pushSynced=false;   // pushSt: "" (nascosto) | off | on | busy | ios | denied
+const pushLater=()=>Date.now()-(+store.get("rush-push-later")||0)<14*86400000;
+async function notify(body){try{await sb.functions.invoke("notify",{body})}catch(e){console.warn("notifica",e)}}
+function b64uBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const b=atob(s),o=new Uint8Array(b.length);for(let i=0;i<b.length;i++)o[i]=b.charCodeAt(i);return o}
+async function saveSub(sub){
+  const j=sub.toJSON();
+  const {error}=await sb.rpc("staff_push_subscribe",{p_token:token,p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
+  if(error)throw error;
+}
+async function pushInit(){
+  // serve la chiave pubblica in config.js e il database aggiornato (staff_portal restituisce work_days)
+  if(!PUSH_KEY||!portalOk||!portal||portal.work_days==null||offline){if(pushSt!=="busy")pushSt="";return}
+  if(pushSt==="busy")return;
+  if(!("serviceWorker" in navigator)||!window.PushManager||!window.Notification){pushSt=isIOS&&!standalone()?"ios":"";return}
+  if(Notification.permission==="denied"){pushSt="denied";return}
+  const reg=await navigator.serviceWorker.getRegistration();
+  const sub=reg&&await reg.pushManager.getSubscription();
+  if(sub&&Notification.permission==="granted"){
+    pushSt="on";
+    if(!pushSynced){pushSynced=true;saveSub(sub).catch(e=>console.warn(e))}   // collega il telefono al link (anche dopo un cambio di link)
+  }else pushSt="off";
+}
+async function pushOn(){
+  pushErr="";pushMsg="";
+  let perm;
+  try{perm=await Notification.requestPermission()}catch(e){perm="default"}
+  if(perm!=="granted"){pushSt=perm==="denied"?"denied":"off";if(perm!=="denied")pushErr="Per ricevere le notifiche tocca «Consenti».";render();return}
+  pushSt="busy";render();
+  try{
+    const reg=await navigator.serviceWorker.register("sw.js");
+    await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64uBytes(PUSH_KEY)});
+    await saveSub(sub);pushSynced=true;
+    pushSt="on";pushMsg="Fatto! Ti abbiamo mandato una notifica di prova.";
+    notify({action:"test",token});
+  }catch(e){console.warn(e);pushSt="off";pushErr="Attivazione non riuscita. Controlla la connessione e riprova."}
+  render();
+}
+async function pushOff(){
+  if(!confirm("Disattivare le notifiche su questo telefono?"))return;
+  pushSt="busy";render();
+  try{
+    const reg=await navigator.serviceWorker.getRegistration();
+    const sub=reg&&await reg.pushManager.getSubscription();
+    if(sub){await sb.rpc("staff_push_unsubscribe",{p_token:token,p_endpoint:sub.endpoint});await sub.unsubscribe()}
+    pushSt="off";pushMsg="Notifiche disattivate su questo telefono.";pushErr="";
+  }catch(e){console.warn(e);pushSt="on";pushErr="Non riuscito, riprova."}
+  render();
+}
+const BELL='<svg class="bell" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>';
+function pushCard(){
+  const note=(pushMsg?'<div class="okmsg" role="status">'+esc(pushMsg)+'</div>':"")+(pushErr?'<div class="err" role="alert">'+esc(pushErr)+'</div>':"");
+  if(pushSt==="on"||pushSt==="busy")return '<div class="pushline">'+BELL+'<span><b>Notifiche attive</b> su questo telefono</span><span class="spacer"></span>'+
+    '<button class="btn small" data-act="push-test"'+(pushSt==="busy"?" disabled":"")+'>Prova</button><button class="btn small ghost" data-act="push-off"'+(pushSt==="busy"?" disabled":"")+'>Disattiva</button>'+note+'</div>';
+  if(pushLater())return '<div class="pushline muted">'+BELL+'<span>Notifiche spente</span><span class="spacer"></span><button class="btn small" data-act="'+(pushSt==="off"?"push-on":"push-later-reset")+'">'+(pushSt==="off"?"Attiva":"Come attivarle")+'</button>'+note+'</div>';
+  let txt,btn="";
+  if(pushSt==="ios")txt='Su iPhone le notifiche funzionano solo dall\'app: tocca <b>Condividi</b> <svg class="shr" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11v9h12v-9"/></svg> → <b>Aggiungi alla schermata Home</b>, poi apri Rush dall\'icona e torna qui.';
+  else if(pushSt==="denied")txt='Hai bloccato le notifiche per questa pagina. Riattivale dalle impostazioni del browser (icona del lucchetto → Notifiche → Consenti), poi ricarica.';
+  else{txt='Ricevi il planning appena è pronto, la risposta a ferie e cambi e un promemoria la sera prima del turno.';btn='<button class="btn primary" data-act="push-on">Attiva notifiche</button>'}
+  return '<div class="panel pushcard">'+BELL+'<div class="pc-body"><h3>Notifiche sul telefono</h3><p>'+txt+'</p>'+note+'<div class="pc-act">'+btn+'<button class="btn ghost" data-act="push-later">Non ora</button></div></div></div>';
+}
 let first=true;
 async function load(){
   try{
@@ -477,6 +563,7 @@ async function load(){
     week=c.w;upcoming=c.u;offline=true;
   }
   await Promise.all([fetchPortal(),fetchSwap()]);
+  await pushInit().catch(e=>{console.warn(e);pushSt=""});
   if((view==="richieste"||view==="disp")&&!portalOk)view="turni";
   if(view==="cambi"&&!swapOk)view="turni";
   if(view==="disp"&&!isStudent())view="turni";
@@ -514,7 +601,7 @@ function render(){
   if(view==="richieste")h+=viewRequests();
   else if(view==="disp")h+=viewDisp();
   else if(view==="cambi")h+=viewSwaps();
-  else h+=viewShifts(list);
+  else h+=(["off","ios","denied"].includes(pushSt)&&!pushLater()?pushCard():"")+viewShifts(list)+(pushSt==="on"||pushSt==="busy"||(pushSt&&pushLater())?pushCard():"");
   document.getElementById("main").innerHTML=h;
 }
 function viewShifts(list){
@@ -540,11 +627,12 @@ function viewRequests(){
     '<div class="two"><div class="field"><label for="rq-start">'+(f.kind==="ferie"?"Dal":"Giorno")+'</label><input id="rq-start" type="date" min="'+min+'" value="'+esc(f.start)+'" required></div>'+
     '<div class="field"><label for="rq-end">'+(f.kind==="ferie"?"Al":"Fino al (facoltativo)")+'</label><input id="rq-end" type="date" min="'+esc(f.start||min)+'" value="'+esc(f.end)+'"><span class="help">Lascia vuoto per un solo giorno</span></div></div>'+
     '<div class="field"><label for="rq-note">Nota (facoltativa)</label><input id="rq-note" type="text" maxlength="200" placeholder="es. matrimonio di mio fratello" value="'+esc(f.note)+'"></div>'+
+    '<div class="sub2" id="rq-count" role="status">'+esc(countText())+'</div>'+
     (reqErr?'<div class="err">'+esc(reqErr)+'</div>':"")+(reqMsg?'<div class="okmsg">'+esc(reqMsg)+'</div>':"")+
     '<div><button class="btn primary" type="submit"'+(sending||offline?" disabled":"")+'>'+(sending?"Invio…":"Invia richiesta")+'</button></div></form></div>';
   const rs=portal.requests.slice().sort((a,b)=>(a.status==="attesa"?0:1)-(b.status==="attesa"?0:1)||String(b.start).localeCompare(String(a.start)));
   h+='<div class="panel"><div class="hd"><h3>Le tue richieste</h3></div>'+(rs.length?rs.map(r=>{const st=RSTATUS[r.status]||["",""];const s=String(r.start).slice(0,10),e=String(r.end).slice(0,10);const n=nDays(s,e);
-    return '<div class="req"><div class="req-main"><b>'+KINDS[r.kind]+'</b> <span class="pill '+st[1]+'">'+st[0]+'</span><div class="num">'+fmtRange(s,e)+(n>1?' · '+n+' giorni':'')+'</div>'+
+    return '<div class="req"><div class="req-main"><b>'+KINDS[r.kind]+'</b> <span class="pill '+st[1]+'">'+st[0]+'</span><div class="num">'+fmtRange(s,e)+' · '+esc(wdText(s,e))+'</div>'+
       (r.note?'<div class="sub2">'+esc(r.note)+'</div>':"")+(r.admin_note?'<div class="sub2"><b>Risposta:</b> '+esc(r.admin_note)+'</div>':"")+
       '<div class="stale">Chiesta il '+fmtStamp(r.created_at)+'</div></div>'+
       (r.status==="attesa"&&!offline?'<button class="btn" data-act="cancelreq" data-id="'+esc(r.id)+'">Annulla</button>':"")+'</div>'}).join(""):'<div class="empty">Nessuna richiesta ancora.</div>')+'</div>';
@@ -680,8 +768,9 @@ async function sendSwap(){
   if(f.mode==="scambio"&&!f.other){swErr="Scegli il turno del collega che prendi in cambio.";render();return}
   swSending=true;render();
   try{
-    const {error}=await sb.rpc("staff_swap_create",{p_token:token,p_shift:f.shift,p_to_staff:f.to,p_other_shift:f.mode==="scambio"?f.other:null,p_note:f.note.trim()});
+    const {data,error}=await sb.rpc("staff_swap_create",{p_token:token,p_shift:f.shift,p_to_staff:f.to,p_other_shift:f.mode==="scambio"?f.other:null,p_note:f.note.trim()});
     if(error)throw error;
+    if(data)notify({action:"swap",token,id:data});
     swForm={shift:"",to:"",mode:f.mode,other:"",note:""};swMsg="Richiesta inviata: ora deve accettare il collega.";
     await fetchSwap();
   }catch(e){swErr=swapErrText(e)}
@@ -689,7 +778,8 @@ async function sendSwap(){
 }
 async function swapAction(fn,args,okText,ask){
   if(ask&&!confirm(ask))return;
-  try{const {data,error}=await sb.rpc(fn,{p_token:token,...args});if(error)throw error;swMsg=data===false?"La richiesta è già cambiata: aggiornata.":okText;swErr=""}
+  try{const {data,error}=await sb.rpc(fn,{p_token:token,...args});if(error)throw error;swMsg=data===false?"La richiesta è già cambiata: aggiornata.":okText;swErr="";
+    if(fn==="staff_swap_respond"&&data!==false)notify({action:"swap",token,id:args.p_id})}
   catch(e){swErr=swapErrText(e);swMsg=""}
   await fetchSwap();render();
 }
@@ -714,12 +804,18 @@ document.addEventListener("click",e=>{
   if(act==="swmode"){swForm.mode=t.dataset.v;if(swForm.mode==="cessione")swForm.other="";render();return}
   if(act==="swyes"){swapAction("staff_swap_respond",{p_id:t.dataset.id,p_accept:true},"Hai accettato: ora decide il responsabile.");return}
   if(act==="swno"){swapAction("staff_swap_respond",{p_id:t.dataset.id,p_accept:false},"Hai rifiutato il cambio.","Rifiutare questo cambio?");return}
+  if(act==="push-on"){pushOn();return}
+  if(act==="push-off"){pushOff();return}
+  if(act==="push-test"){pushMsg="Notifica di prova inviata.";pushErr="";render();notify({action:"test",token});return}
+  if(act==="push-later-reset"){store.set("rush-push-later","0");render();return}
+  if(act==="push-later"){store.set("rush-push-later",String(Date.now()));render();return}
   if(act==="swcancel"){swapAction("staff_swap_cancel",{p_id:t.dataset.id},"Richiesta annullata.","Annullare questa richiesta di cambio?");return}
 });
 function onField(e){
   const t=e.target;
   if(t.id==="rq-start"){reqForm.start=t.value;const en=document.getElementById("rq-end");if(en){en.min=t.value||ymd(today);if(reqForm.end&&reqForm.end<t.value){reqForm.end="";en.value=""}}}
   else if(t.id==="rq-end")reqForm.end=t.value;
+  if(t.id==="rq-start"||t.id==="rq-end"){const c=document.getElementById("rq-count");if(c)c.textContent=countText()}
   else if(t.id==="rq-note")reqForm.note=t.value;
   else if(t.id==="sw-shift"){if(swForm.shift!==t.value){swForm.shift=t.value;render()}}
   else if(t.id==="sw-to"){if(swForm.to!==t.value){swForm.to=t.value;swForm.other="";render()}}
