@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Réserver · Book-in</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111827'/%3E%3Cpath d='M9 10h9a4 4 0 0 1 0 8H9zM9 18h10a4 4 0 0 1 0 8H9z' fill='none' stroke='%2334d399' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+:root{--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--bg:#f7f7f5;--card:#fff;--accent:#111827;--accent-ink:#fff;--ok:#059669;--err:#b91c1c;--r:14px;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+button,input,textarea{font:inherit;color:inherit}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:8px 0 18px}
+header h1{margin:0;font-size:26px;letter-spacing:-.02em;line-height:1.15}
+header .sub{color:var(--muted);font-size:14px;margin-top:4px}
+.langs{display:flex;gap:2px;background:#ececea;border-radius:999px;padding:3px;flex:none}
+.langs button{border:0;background:none;padding:4px 9px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.langs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:12px}
+.step{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.step h2{margin:0;font-size:15px;font-weight:650}
+.step .val{color:var(--muted);font-size:14px}
+.step .edit{border:0;background:none;color:var(--ink);text-decoration:underline;font-size:14px;cursor:pointer;padding:0}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{min-width:46px;height:44px;padding:0 14px;border:1px solid var(--line);background:#fff;border-radius:12px;cursor:pointer;font-weight:600;font-variant-numeric:tabular-nums}
+.chip:hover{border-color:#c7c9cd}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip:disabled{opacity:.35;cursor:default}
+.days{display:grid;grid-auto-flow:column;grid-auto-columns:64px;gap:8px;overflow-x:auto;padding:14px 2px 4px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.day{scroll-snap-align:start;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 0;text-align:center;cursor:pointer}
+.day .dw{font-size:12px;color:var(--muted);text-transform:capitalize}
+.day .dn{font-size:20px;font-weight:650;line-height:1.2}
+.day .dm{font-size:11px;color:var(--muted);text-transform:capitalize}
+.day.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.day.on .dw,.day.on .dm{color:inherit;opacity:.8}
+.day:disabled{opacity:.3;cursor:default}
+.other{margin-top:10px;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.other input{border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff}
+.grp{margin-top:14px}.grp h3{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.empty{margin-top:14px;color:var(--muted);font-size:14px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+input[type=text],input[type=tel],input[type=email],textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:#fff;outline:none}
+input:focus,textarea:focus{border-color:var(--ink)}
+textarea{min-height:72px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{display:block;width:100%;margin-top:16px;height:50px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:650;font-size:16px;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+.fine{font-size:12px;color:var(--muted);margin-top:10px}
+.err{color:var(--err);font-size:14px;margin-top:10px}
+.done{text-align:center;padding:26px 18px}
+.done .ok{width:54px;height:54px;border-radius:50%;background:#ecfdf5;color:var(--ok);display:grid;place-items:center;margin:0 auto 12px;font-size:26px}
+.done h2{margin:0 0 6px;font-size:22px}
+.summary{display:grid;gap:4px;margin:14px 0;font-size:15px}
+.note{background:#f3f4f6;border-radius:10px;padding:10px 12px;font-size:14px;color:#374151;margin-bottom:12px;white-space:pre-line}
+.foot{text-align:center;font-size:12px;color:#9ca3af;margin-top:24px}
+.foot b{color:#6b7280}
+.sk{height:44px;border-radius:12px;background:linear-gradient(90deg,#f0f0ee,#e8e8e6,#f0f0ee);background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="card"><div class="sk"></div></div></div>
+<script src="../config.js"></script>
+<script src="../vendor/supabase.js"></script>
+<script>
+"use strict";
+const C=window.RUSH_CONFIG||{};
+const sb=window.supabase.createClient(C.supabaseUrl,C.supabaseAnonKey,{auth:{persistSession:false}});
+const T={
+ fr:{book:"Réserver une table",guests:"Personnes",date:"Date",time:"Heure",details:"Vos coordonnées",more:"Plus de {n} personnes ? Appelez-nous",other:"Autre date",lunch:"Midi",dinner:"Soir",none:"Plus de disponibilité ce jour-là. Essayez une autre date.",first:"Prénom",last:"Nom",phone:"Téléphone",email:"E-mail",note:"Demande particulière (allergies, poussette…)",confirm:"Confirmer la réservation",consent:"En réservant, vous acceptez que le restaurant conserve vos coordonnées pour gérer votre réservation.",change:"Modifier",ok:"Réservation confirmée",see:"À bientôt",pers:"{n} pers.",keep:"Gardez ce lien pour gérer votre réservation :",copy:"Copier le lien",copied:"Lien copié",cancel:"Annuler la réservation",cancelq:"Annuler cette réservation ?",canceled:"Réservation annulée",status:"Statut",notfound:"Restaurant introuvable.",rnotfound:"Réservation introuvable.",tooLate:"Pour modifier, appelez le restaurant.",errTaken:"Cet horaire vient d'être pris. Choisissez-en un autre.",errMax:"Trop de réservations à venir avec ce numéro.",errData:"Vérifiez prénom et téléphone.",errMail:"E-mail non valide.",errGen:"Une erreur est survenue. Réessayez.",new:"Nouvelle réservation",closed:"Fermé",st:{prenotata:"Confirmée",confermata:"Confirmée",annullata:"Annulée",no_show:"Absent",seduta:"À table",finita:"Terminée",pagata:"Terminée",conto:"À table",parziale:"À table",attesa:"Liste d'attente"}},
+ nl:{book:"Reserveer een tafel",guests:"Personen",date:"Datum",time:"Uur",details:"Uw gegevens",more:"Meer dan {n} personen? Bel ons",other:"Andere datum",lunch:"Middag",dinner:"Avond",none:"Geen plaats meer op deze dag. Probeer een andere datum.",first:"Voornaam",last:"Naam",phone:"Telefoon",email:"E-mail",note:"Speciale wens (allergieën, kinderwagen…)",confirm:"Reservering bevestigen",consent:"Door te reserveren gaat u ermee akkoord dat het restaurant uw gegevens bewaart om uw reservering te beheren.",change:"Wijzigen",ok:"Reservering bevestigd",see:"Tot binnenkort",pers:"{n} pers.",keep:"Bewaar deze link om uw reservering te beheren:",copy:"Link kopiëren",copied:"Link gekopieerd",cancel:"Reservering annuleren",cancelq:"Deze reservering annuleren?",canceled:"Reservering geannuleerd",status:"Status",notfound:"Restaurant niet gevonden.",rnotfound:"Reservering niet gevonden.",tooLate:"Bel het restaurant om te wijzigen.",errTaken:"Dit uur is net bezet. Kies een ander.",errMax:"Te veel komende reserveringen met dit nummer.",errData:"Controleer voornaam en telefoon.",errMail:"Ongeldig e-mailadres.",errGen:"Er ging iets mis. Probeer opnieuw.",new:"Nieuwe reservering",closed:"Gesloten",st:{prenotata:"Bevestigd",confermata:"Bevestigd",annullata:"Geannuleerd",no_show:"Niet gekomen",seduta:"Aan tafel",finita:"Afgelopen",pagata:"Afgelopen",conto:"Aan tafel",parziale:"Aan tafel",attesa:"Wachtlijst"}},
+ en:{book:"Book a table",guests:"Guests",date:"Date",time:"Time",details:"Your details",more:"More than {n} guests? Call us",other:"Other date",lunch:"Lunch",dinner:"Dinner",none:"No availability that day. Try another date.",first:"First name",last:"Last name",phone:"Phone",email:"Email",note:"Special request (allergies, pram…)",confirm:"Confirm booking",consent:"By booking you agree that the restaurant keeps your details to manage your booking.",change:"Change",ok:"Booking confirmed",see:"See you soon",pers:"{n} guests",keep:"Keep this link to manage your booking:",copy:"Copy link",copied:"Link copied",cancel:"Cancel booking",cancelq:"Cancel this booking?",canceled:"Booking cancelled",status:"Status",notfound:"Restaurant not found.",rnotfound:"Booking not found.",tooLate:"To change it, please call the restaurant.",errTaken:"That time was just taken. Please pick another.",errMax:"Too many upcoming bookings with this number.",errData:"Please check first name and phone.",errMail:"Invalid email.",errGen:"Something went wrong. Please try again.",new:"New booking",closed:"Closed",st:{prenotata:"Confirmed",confermata:"Confirmed",annullata:"Cancelled",no_show:"No-show",seduta:"Seated",finita:"Finished",pagata:"Finished",conto:"Seated",parziale:"Seated",attesa:"Waitlist"}},
+ it:{book:"Prenota un tavolo",guests:"Persone",date:"Data",time:"Orario",details:"I tuoi dati",more:"Più di {n} persone? Chiamaci",other:"Altra data",lunch:"Pranzo",dinner:"Cena",none:"Nessuna disponibilità in questo giorno. Prova un'altra data.",first:"Nome",last:"Cognome",phone:"Telefono",email:"E-mail",note:"Richieste particolari (allergie, passeggino…)",confirm:"Conferma la prenotazione",consent:"Prenotando accetti che il ristorante conservi i tuoi dati per gestire la prenotazione.",change:"Modifica",ok:"Prenotazione confermata",see:"A presto",pers:"{n} pers.",keep:"Conserva questo link per gestire la prenotazione:",copy:"Copia il link",copied:"Link copiato",cancel:"Annulla la prenotazione",cancelq:"Annullare questa prenotazione?",canceled:"Prenotazione annullata",status:"Stato",notfound:"Ristorante non trovato.",rnotfound:"Prenotazione non trovata.",tooLate:"Per modificarla chiama il ristorante.",errTaken:"Questo orario è appena stato preso. Scegline un altro.",errMax:"Troppe prenotazioni future con questo numero.",errData:"Controlla nome e telefono.",errMail:"E-mail non valida.",errGen:"Qualcosa è andato storto. Riprova.",new:"Nuova prenotazione",closed:"Chiuso",st:{prenotata:"Confermata",confermata:"Confermata",annullata:"Annullata",no_show:"Assente",seduta:"Al tavolo",finita:"Conclusa",pagata:"Conclusa",conto:"Al tavolo",parziale:"Al tavolo",attesa:"Lista d'attesa"}}
+};
+const LOC={fr:"fr-BE",nl:"nl-BE",en:"en-GB",it:"it-IT"};
+let lang="fr";
+const t=(k,v)=>{let s=(T[lang]||T.fr)[k]||T.fr[k]||k;if(v)for(const x in v)s=s.replace("{"+x+"}",v[x]);return s};
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hhmm=m=>String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const parseIso=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const fmtDay=(s,opt)=>parseIso(s).toLocaleDateString(LOC[lang],opt||{weekday:"long",day:"numeric",month:"long"});
+const isodow=d=>((d.getDay()+6)%7)+1;
+
+const hash=location.hash.slice(1);
+const params=new URLSearchParams(hash.includes("=")?hash:"");
+const slug=(params.get("v")||(!hash.includes("=")?hash:"")).toLowerCase();
+const token=params.get("r");
+let venue=null, st={party:null,day:null,time:null,times:null,loading:false,err:"",done:null,busy:false};
+
+function pickLang(def){
+  try{const s=localStorage.getItem("bookin-lang");if(s&&T[s])return s}catch(e){}
+  const n=(navigator.language||"").slice(0,2);return T[n]?n:(T[def]?def:"fr");
+}
+function setLang(l){lang=l;try{localStorage.setItem("bookin-lang",l)}catch(e){}document.documentElement.lang=l;render()}
+const langBar=()=>'<div class="langs" role="group" aria-label="Language">'+["fr","nl","en","it"].map(l=>'<button data-lang="'+l+'" class="'+(l===lang?"on":"")+'">'+l.toUpperCase()+'</button>').join("")+'</div>';
+
+async function loadTimes(){
+  st.times=null;st.loading=true;render();
+  const {data,error}=await sb.rpc("bk_public_times",{p_slug:slug,p_day:st.day,p_party:st.party});
+  st.loading=false;st.times=error?[]:(data||[]);render();
+}
+function errText(m){m=String(m||"");if(/non disponibile/.test(m))return t("errTaken");if(/troppe/.test(m))return t("errMax");if(/dati mancanti/.test(m))return t("errData");if(/email/.test(m))return t("errMail");return t("errGen")}
+
+function render(){
+  const app=document.getElementById("app");
+  if(token)return renderManage(app);
+  if(!venue){app.innerHTML='<div class="card">'+esc(t("notfound"))+'</div>';return}
+  document.title=t("book")+" · "+venue.name;
+  let h='<header><div><h1>'+esc(venue.name)+'</h1><div class="sub">'+esc(t("book"))+(venue.address?" · "+esc(venue.address):"")+'</div></div>'+langBar()+'</header>';
+  if(st.done){
+    const d=st.done, link=location.origin+location.pathname+"#v="+encodeURIComponent(slug)+"&r="+d.token;
+    h+='<div class="card done"><div class="ok">✓</div><h2>'+esc(t("ok"))+'</h2>'+
+      '<div class="summary"><div><b>'+esc(fmtDay(d.day))+'</b> · '+hhmm(d.start)+'</div><div>'+esc(t("pers",{n:d.party}))+'</div></div>'+
+      '<p class="fine" style="margin:0 0 6px">'+esc(t("keep"))+'</p><button class="btn ghost" data-act="copy" data-link="'+esc(link)+'">'+esc(t("copy"))+'</button>'+
+      '<button class="btn ghost" data-act="again">'+esc(t("new"))+'</button></div>';
+    app.innerHTML=h+foot();return;
+  }
+  if(venue.message)h+='<div class="note">'+esc(venue.message)+'</div>';
+  // 1. persone
+  h+='<div class="card"><div class="step"><h2>'+esc(t("guests"))+'</h2>'+(st.party?'<span class="val">'+esc(t("pers",{n:st.party}))+'</span>':'')+'</div>';
+  h+='<div class="chips">';for(let n=1;n<=venue.maxParty;n++)h+='<button class="chip'+(st.party===n?" on":"")+'" data-party="'+n+'">'+n+'</button>';h+='</div>';
+  if(venue.phone)h+='<div class="fine">'+esc(t("more",{n:venue.maxParty}))+': <a href="tel:'+esc(venue.phone.replace(/\s/g,""))+'">'+esc(venue.phone)+'</a></div>';
+  h+='</div>';
+  // 2. data
+  if(st.party){
+    const today=new Date();today.setHours(0,0,0,0);
+    const days=venue.days||[];const n=Math.min(venue.maxDaysAhead,30);
+    h+='<div class="card"><div class="step"><h2>'+esc(t("date"))+'</h2>'+(st.day?'<span class="val">'+esc(fmtDay(st.day,{weekday:"short",day:"numeric",month:"short"}))+'</span>':'')+'</div><div class="days">';
+    for(let i=0;i<=n;i++){const d=new Date(today);d.setDate(d.getDate()+i);const s=iso(d);const open=days.includes(isodow(d));
+      h+='<button class="day'+(st.day===s?" on":"")+'" data-day="'+s+'"'+(open?"":" disabled title=\""+esc(t("closed"))+"\"")+'><div class="dw">'+esc(d.toLocaleDateString(LOC[lang],{weekday:"short"}))+'</div><div class="dn">'+d.getDate()+'</div><div class="dm">'+esc(d.toLocaleDateString(LOC[lang],{month:"short"}))+'</div></button>'}
+    const max=new Date(today);max.setDate(max.getDate()+venue.maxDaysAhead);
+    h+='</div><div class="other">'+esc(t("other"))+' <input type="date" id="other" min="'+iso(today)+'" max="'+iso(max)+'" value="'+(st.day||"")+'"></div></div>';
+  }
+  // 3. orario
+  if(st.party&&st.day){
+    h+='<div class="card"><div class="step"><h2>'+esc(t("time"))+'</h2>'+(st.time!=null?'<span class="val">'+hhmm(st.time)+'</span>':'')+'</div>';
+    if(st.loading||!st.times)h+='<div class="chips"><div class="sk" style="width:100%"></div></div>';
+    else if(!st.times.length)h+='<div class="empty">'+esc(t("none"))+'</div>';
+    else{
+      const lunch=st.times.filter(m=>m<960),dinner=st.times.filter(m=>m>=960);
+      const grp=(name,list)=>list.length?'<div class="grp"><h3>'+esc(name)+'</h3><div class="chips" style="margin-top:0">'+list.map(m=>'<button class="chip'+(st.time===m?" on":"")+'" data-time="'+m+'">'+hhmm(m)+'</button>').join("")+'</div></div>':"";
+      h+=grp(t("lunch"),lunch)+grp(t("dinner"),dinner);
+    }
+    h+='</div>';
+  }
+  // 4. dati
+  if(st.party&&st.day&&st.time!=null){
+    const f=st.form||{};
+    h+='<form class="card" id="form" autocomplete="on"><div class="step"><h2>'+esc(t("details"))+'</h2></div>'+
+      '<div class="two"><div><label for="f-first">'+esc(t("first"))+' *</label><input type="text" id="f-first" autocomplete="given-name" required value="'+esc(f.first||"")+'"></div>'+
+      '<div><label for="f-last">'+esc(t("last"))+'</label><input type="text" id="f-last" autocomplete="family-name" value="'+esc(f.last||"")+'"></div></div>'+
+      '<label for="f-phone">'+esc(t("phone"))+' *</label><input type="tel" id="f-phone" autocomplete="tel" required inputmode="tel" value="'+esc(f.phone||"")+'">'+
+      '<label for="f-email">'+esc(t("email"))+'</label><input type="email" id="f-email" autocomplete="email" value="'+esc(f.email||"")+'">'+
+      '<label for="f-note">'+esc(t("note"))+'</label><textarea id="f-note" maxlength="500">'+esc(f.note||"")+'</textarea>'+
+      (st.err?'<div class="err" role="alert">'+esc(st.err)+'</div>':'')+
+      '<button class="btn" type="submit"'+(st.busy?" disabled":"")+'>'+esc(t("confirm"))+' · '+esc(fmtDay(st.day,{weekday:"short",day:"numeric",month:"short"}))+' '+hhmm(st.time)+'</button>'+
+      '<div class="fine">'+esc(t("consent"))+'</div></form>';
+  }
+  app.innerHTML=h+foot();
+}
+const foot=()=>'<div class="foot">Powered by <b>Book-in</b></div>';
+
+async function renderManage(app){
+  if(!st.manage){
+    app.innerHTML='<header><div><h1>…</h1></div>'+langBar()+'</header><div class="card"><div class="sk"></div></div>';
+    const {data}=await sb.rpc("bk_public_manage",{p_token:token});
+    st.manage=data||{missing:true};
+  }
+  const m=st.manage;
+  if(m.missing){app.innerHTML='<header><div><h1>Book-in</h1></div>'+langBar()+'</header><div class="card">'+esc(t("rnotfound"))+'</div>';return}
+  document.title=m.name;
+  let h='<header><div><h1>'+esc(m.name)+'</h1><div class="sub">'+esc(m.first_name)+'</div></div>'+langBar()+'</header><div class="card">'+
+    '<div class="summary"><div><b>'+esc(fmtDay(m.day))+'</b> · '+hhmm(m.start)+'</div><div>'+esc(t("pers",{n:m.party}))+'</div><div>'+esc(t("status"))+': <b>'+esc((t("st")||{})[m.status]||m.status)+'</b></div></div>';
+  if(m.can_cancel)h+='<button class="btn ghost" data-act="cancel">'+esc(t("cancel"))+'</button>';
+  else if(m.status!=="annullata")h+='<div class="fine">'+esc(t("tooLate"))+(m.phone?' <a href="tel:'+esc(m.phone.replace(/\s/g,""))+'">'+esc(m.phone)+'</a>':'')+'</div>';
+  h+='<a class="btn" style="display:grid;place-items:center;text-decoration:none" href="'+esc(location.pathname+"#"+m.slug)+'">'+esc(t("new"))+'</a></div>';
+  app.innerHTML=h+foot();
+}
+
+document.addEventListener("click",async e=>{
+  const b=e.target.closest("button,[data-act]");if(!b)return;
+  if(b.dataset.lang){setLang(b.dataset.lang);return}
+  if(b.dataset.party){st.party=+b.dataset.party;st.time=null;if(st.day)loadTimes();else render();return}
+  if(b.dataset.day){st.day=b.dataset.day;st.time=null;loadTimes();return}
+  if(b.dataset.time){saveForm();st.time=+b.dataset.time;st.err="";render();setTimeout(()=>{const f=document.getElementById("form");if(f)f.scrollIntoView({behavior:"smooth",block:"start"})},50);return}
+  const act=b.dataset.act;
+  if(act==="copy"){try{await navigator.clipboard.writeText(b.dataset.link);b.textContent=t("copied")}catch(err){prompt(t("copy"),b.dataset.link)}return}
+  if(act==="again"){st={party:null,day:null,time:null,times:null,form:st.form};render();return}
+  if(act==="cancel"){if(!confirm(t("cancelq")))return;const {data}=await sb.rpc("bk_public_cancel",{p_token:token});if(data){st.manage=null;await renderManage(document.getElementById("app"))}return}
+});
+document.addEventListener("change",e=>{if(e.target.id==="other"&&e.target.value){st.day=e.target.value;st.time=null;loadTimes()}});
+function saveForm(){const g=id=>{const el=document.getElementById(id);return el?el.value:undefined};if(document.getElementById("form"))st.form={first:g("f-first"),last:g("f-last"),phone:g("f-phone"),email:g("f-email"),note:g("f-note")}}
+document.addEventListener("submit",async e=>{
+  if(e.target.id!=="form")return;e.preventDefault();saveForm();
+  const f=st.form;st.err="";
+  if(!f.first.trim()||f.phone.replace(/\D/g,"").length<8){st.err=t("errData");render();return}
+  st.busy=true;render();
+  const {data,error}=await sb.rpc("bk_public_book",{p_slug:slug,p_day:st.day,p_start:st.time,p_party:st.party,p_first:f.first,p_last:f.last,p_phone:f.phone,p_email:f.email,p_note:f.note,p_lang:lang});
+  st.busy=false;
+  if(error){st.err=errText(error.message);if(/non disponibile/.test(error.message)){st.time=null;loadTimes();return}render();return}
+  st.done=data;render();window.scrollTo({top:0,behavior:"smooth"});
+});
+window.addEventListener("hashchange",()=>location.reload());
+
+(async()=>{
+  if(token){lang=pickLang("fr");document.documentElement.lang=lang;render();return}
+  if(!slug){document.getElementById("app").innerHTML='<div class="card">Book-in</div>';return}
+  const {data}=await sb.rpc("bk_public_venue",{p_slug:slug});
+  venue=data;lang=pickLang(venue?venue.lang:"fr");document.documentElement.lang=lang;
+  if(venue&&venue.accent&&/^#[0-9a-f]{6}$/i.test(venue.accent))document.documentElement.style.setProperty("--accent",venue.accent);
+  render();
+})();
+</script>
+</body>
+</html>
