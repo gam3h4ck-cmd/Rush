@@ -13,7 +13,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='112' fill='%2314161b'/%3E%3Cpath d='M136.10,166.90 L334.10,166.90 L309.90,208.70 L111.90,208.70Z' fill='%23ff5a1f' fill-opacity='1'/%3E%3Cpath d='M191.10,235.10 L422.10,235.10 L397.90,276.90 L166.90,276.90Z' fill='%23ff7d4d' fill-opacity='1'/%3E%3Cpath d='M114.10,303.30 L279.10,303.30 L254.90,345.10 L89.90,345.10Z' fill='%23ffa27c' fill-opacity='1'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:ital,opsz,wght,SOFT,WONK@1,9..144,900,0,0&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root{
   /* layout: intestazione chiara con il marchio e una bordura a quadretti da tovaglia; superficie color mozzarella; i turni sono comande colorate per reparto */
@@ -300,8 +300,9 @@ h1,h2,h3{font-family:var(--font-display);letter-spacing:-.02em}
 /* intestazione scura, senza quadretti */
 header.top{background:var(--side);color:var(--side-ink)}
 header.top::after{display:none}
+@font-face{font-family:"RushWord";font-style:italic;font-weight:900;src:url(data:font/woff2;base64,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) format("woff2")}
 .brand .rush-mark{display:block;flex:none;margin-right:-9px}
-.brand h1{font-family:"Fraunces",Georgia,"Times New Roman",serif;font-size:29px;font-weight:900;font-style:italic;font-variation-settings:"WONK" 0;letter-spacing:-.01em;line-height:1;color:#fff}
+.brand h1{font-family:"RushWord","Fraunces",Georgia,serif;font-size:29px;font-weight:900;font-style:italic;letter-spacing:-.01em;line-height:1;color:#fff}
 .brand .venue{color:var(--side-muted);border-left-color:#2c3039;font-size:13px}
 .status{color:var(--side-muted)}
 .dot.warn{background:var(--oil)}
@@ -489,7 +490,7 @@ const isIOS=/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="M
 const standalone=()=>(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
 let pushSt="", pushMsg="", pushErr="", pushSynced=false;   // pushSt: "" (nascosto) | off | on | busy | ios | denied
 const pushLater=()=>Date.now()-(+store.get("rush-push-later")||0)<14*86400000;
-async function notify(body){try{await sb.functions.invoke("notify",{body})}catch(e){console.warn("notifica",e)}}
+async function notify(body){try{await sb.functions.invoke((window.RUSH_CONFIG||{}).notifyFunction||"notify",{body})}catch(e){console.warn("notifica",e)}}
 function b64uBytes(s){s=s.replace(/-/g,"+").replace(/_/g,"/");while(s.length%4)s+="=";const b=atob(s),o=new Uint8Array(b.length);for(let i=0;i<b.length;i++)o[i]=b.charCodeAt(i);return o}
 async function saveSub(sub){
   const j=sub.toJSON();
